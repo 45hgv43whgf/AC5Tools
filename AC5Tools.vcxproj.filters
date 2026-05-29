@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{7d422847-3d54-4c3f-82d4-cc7738c8c1c4}</UniqueIdentifier>
+      <Extensions>cpp;c</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{808bc2cb-2385-4e7c-9b87-77ea82346f7b}</UniqueIdentifier>
+      <Extensions>h;hpp</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{79b9f538-e8a3-41dc-9863-caa442643815}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Scripts">
+      <UniqueIdentifier>{b8c4fd56-dc53-4ce0-a7e5-8d3a6b682101}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AC5Tools.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_draw.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_tables.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_widgets.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="third_party\imgui\backends\imgui_impl_dx11.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="third_party\imgui\backends\imgui_impl_win32.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="third_party\minhook\src\buffer.c"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="third_party\minhook\src\hook.c"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="third_party\minhook\src\trampoline.c"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="third_party\minhook\src\hde\hde64.c"><Filter>Source Files</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="third_party\imgui\imgui.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="third_party\imgui\imgui_internal.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="third_party\imgui\backends\imgui_impl_dx11.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="third_party\imgui\backends\imgui_impl_win32.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="third_party\minhook\include\MinHook.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="third_party\minhook\src\buffer.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="third_party\minhook\src\trampoline.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="third_party\minhook\src\hde\hde64.h"><Filter>Header Files</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="AC5Tools.rc"><Filter>Resource Files</Filter></ResourceCompile>
+    <None Include="AC5Tools.ini"><Filter>Resource Files</Filter></None>
+    <None Include="release_assets\dinput8.dll"><Filter>Resource Files</Filter></None>
+    <None Include="build.bat"><Filter>Scripts</Filter></None>
+    <None Include="package_release.bat"><Filter>Scripts</Filter></None>
+    <None Include="install_to_game.ps1"><Filter>Scripts</Filter></None>
+  </ItemGroup>
+</Project>
