@@ -31,13 +31,14 @@ extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wparam
 namespace {
 
 constexpr const char* kToolName = "AC5Tools";
-constexpr const char* kToolVersion = "v1.00";
-constexpr const char* kToolTitle = "AC5Tools v1.00";
+constexpr const char* kToolVersion = "v1.01";
+constexpr const char* kToolTitle = "AC5Tools v1.01";
 constexpr const char* kSupportedGameExe = "ACC.exe";
 constexpr unsigned long long kSupportedGameExeSize = 67873496ull;
 constexpr const char* kSupportedGameExeSha256 =
     "E870D89433297F978DFEB9903F37C0BB1553F35D2E7D4C7847E8C40AB6B77A84";
 constexpr int kMenuHotkeyCapture = -2;
+constexpr ULONGLONG kShipPointerFreshMs = 5000;
 
 constexpr std::uint8_t kBhvAssassinPattern[] = {
     0x48, 0x8D, 0x8F, 0xA0, 0x02, 0x00, 0x00, 0x48, 0x8B, 0x52,
@@ -640,6 +641,8 @@ std::uintptr_t g_playerInventory = 0;
 std::uintptr_t g_inventorySupplies = 0;
 std::uintptr_t g_gclShip = 0;
 std::uintptr_t g_allyShip = 0;
+ULONGLONG g_gclShipLastSeen = 0;
+ULONGLONG g_allyShipLastSeen = 0;
 std::uintptr_t g_lockConsumables1Address = 0;
 std::uintptr_t g_lockConsumables2Address = 0;
 std::uintptr_t g_inventorySuppliesAddress = 0;
@@ -870,7 +873,7 @@ void InitConsole() {
     if (!AllocConsole()) {
         return;
     }
-    SetConsoleTitleA("AC5Tools v1.00 Log");
+    SetConsoleTitleA("AC5Tools v1.01 Log");
     freopen_s(&g_consoleOut, "CONOUT$", "w", stdout);
     FILE* consoleErr = nullptr;
     freopen_s(&consoleErr, "CONOUT$", "w", stderr);
@@ -1414,22 +1417,42 @@ void ApplyAllyShipGodmodeTo(std::uintptr_t ship) {
     TopUpShipHealth(ship);
 }
 
+bool IsFreshShipPointer(ULONGLONG lastSeen) {
+    return lastSeen != 0 && GetTickCount64() - lastSeen <= kShipPointerFreshMs;
+}
+
+void ClearShipPointer() {
+    g_gclShip = 0;
+    g_gclShipLastSeen = 0;
+}
+
+void ClearAllyShipPointer() {
+    g_allyShip = 0;
+    g_allyShipLastSeen = 0;
+}
+
 void ApplyShipOptions() {
+    if (g_gclShip && !IsFreshShipPointer(g_gclShipLastSeen)) {
+        ClearShipPointer();
+    }
     if (g_gclShip) {
         __try {
             ApplyShipOptionsTo(g_gclShip);
         } __except (EXCEPTION_EXECUTE_HANDLER) {
             LogError("Ship option write skipped after invalid GclShip pointer access.");
-            g_gclShip = 0;
+            ClearShipPointer();
         }
     }
 
+    if (g_allyShip && !IsFreshShipPointer(g_allyShipLastSeen)) {
+        ClearAllyShipPointer();
+    }
     if (g_allyShip) {
         __try {
             ApplyAllyShipGodmodeTo(g_allyShip);
         } __except (EXCEPTION_EXECUTE_HANDLER) {
             LogError("Ally Godmode write skipped after invalid friendly ship pointer access.");
-            g_allyShip = 0;
+            ClearAllyShipPointer();
         }
     }
 }
@@ -1442,15 +1465,17 @@ void CaptureShipPointer(void* ship) {
 
     const auto shipAddress = reinterpret_cast<std::uintptr_t>(ship);
     g_gclShip = shipAddress;
+    g_gclShipLastSeen = GetTickCount64();
     const auto shipType = ReadShipType(shipAddress);
     if (shipType == 2) {
         InterlockedIncrement(&g_allyShipHits);
         g_allyShip = shipAddress;
+        g_allyShipLastSeen = g_gclShipLastSeen;
         __try {
             ApplyAllyShipGodmodeTo(shipAddress);
         } __except (EXCEPTION_EXECUTE_HANDLER) {
             LogError("Ally Godmode capture skipped after invalid friendly ship pointer access.");
-            g_allyShip = 0;
+            ClearAllyShipPointer();
         }
         return;
     }
@@ -3460,7 +3485,8 @@ void DrawShipTab() {
         ImGui::TextDisabled("Harpoon Godmode unavailable: patches were not installed.");
     }
 
-    if (!g_gclShip) {
+    const bool shipPointerFresh = g_gclShip && IsFreshShipPointer(g_gclShipLastSeen);
+    if (!shipPointerFresh) {
         ImGui::TextDisabled("Waiting for ship pointer; board/enter naval gameplay.");
     } else {
         __try {
@@ -3474,7 +3500,7 @@ void DrawShipTab() {
         }
     }
 
-    if (g_allyShip) {
+    if (g_allyShip && IsFreshShipPointer(g_allyShipLastSeen)) {
         __try {
             const float allyHealth = *reinterpret_cast<float*>(g_allyShip + 0x26C);
             const float allyMaxHealth = *reinterpret_cast<float*>(g_allyShip + 0x268);

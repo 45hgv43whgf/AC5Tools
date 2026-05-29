@@ -20,7 +20,7 @@ copy /y "%ASI_PATH%" "%RELEASE_SCRIPTS%\AC5Tools.asi" >nul
 copy /y "%PROJECT_DIR%AC5Tools.ini" "%RELEASE_SCRIPTS%\AC5Tools.ini" >nul
 
 (
- echo AC5Tools v1.00
+ echo AC5Tools v1.01
  echo.
  echo Standalone x64 ASI plugin for Assassin's Creed Rogue ACC.exe.
  echo Supported ACC.exe size: 67,873,496 bytes

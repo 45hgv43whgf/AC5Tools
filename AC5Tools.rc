@@ -15,11 +15,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "AC5Tools"
             VALUE "FileDescription", "AC5Tools ASI Plugin"
-            VALUE "FileVersion", "1.00"
+            VALUE "FileVersion", "1.01"
             VALUE "InternalName", "AC5Tools"
             VALUE "OriginalFilename", "AC5Tools.asi"
             VALUE "ProductName", "AC5Tools"
-            VALUE "ProductVersion", "1.00"
+            VALUE "ProductVersion", "1.01"
         END
     END
     BLOCK "VarFileInfo"
