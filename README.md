@@ -4,7 +4,7 @@ AC5Tools is a standalone x64 ASI plugin for **Assassin's Creed Rogue**.
 
 It adds an in-game DX11 ImGui menu with ship, player, inventory, unlock, Animus Hacks, noclip, movement, input/system, and hotkey options. The plugin is intended to be loaded through Ultimate ASI Loader.
 
-Current version: **v0.1.0**
+Current version: **v1.00**
 
 ## Game Version
 
