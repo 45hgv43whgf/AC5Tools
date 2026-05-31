@@ -163,6 +163,18 @@ constexpr std::uint8_t kOriginalHarpoonGodmodeBytes[] = {
 constexpr std::uint8_t kOriginalHarpoonGodmode2Bytes[] = {
     0xF3, 0x0F, 0x5C, 0xC6,
 };
+constexpr std::uint8_t kAllowEagleVisionWhileSprintingPattern[] = {
+    0x41, 0xF6, 0x45, 0x38, 0x01, 0x74, 0x11, 0x33, 0xD2, 0x49, 0x8B, 0xCD,
+    0xE8, 0xEA, 0x72, 0x4A, 0xFF, 0x41, 0xF6, 0x45, 0x38, 0x01, 0x75, 0x26,
+    0x48, 0x8B, 0x45, 0x6F, 0xF3, 0x0F, 0x10, 0x90, 0xD4, 0x00, 0x00, 0x00,
+};
+constexpr std::ptrdiff_t kAllowEagleVisionWhileSprintingPatchOffset = 0x05;
+constexpr std::uint8_t kOriginalAllowEagleVisionWhileSprintingBytes[] = {
+    0x74, 0x11,
+};
+constexpr std::uint8_t kEnabledAllowEagleVisionWhileSprintingBytes[] = {
+    0xEB, 0x11,
+};
 constexpr std::uint8_t kKillCiviliansNoDesyncPattern1[] = {
     0x48, 0x8B, 0x05, 0x00, 0x00, 0x00, 0x00, 0x66, 0x0F, 0xEF, 0xC0, 0xF3,
     0x0F, 0x10, 0x88, 0x90, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x87, 0x80, 0x01,
@@ -422,6 +434,7 @@ bool g_playerGodmode = false;
 bool g_stealthMode = false;
 bool g_noReload = false;
 bool g_noFallDamage = false;
+bool g_allowEagleVisionWhileSprinting = false;
 bool g_killCiviliansNoDesync = false;
 bool g_lockConsumables = false;
 bool g_unlimitedResources = false;
@@ -449,6 +462,7 @@ enum ActionIndex {
     kActionStealthMode,
     kActionNoReload,
     kActionNoFallDamage,
+    kActionAllowEagleVisionWhileSprinting,
     kActionKillCiviliansNoDesync,
     kActionLockConsumables,
     kActionUnlimitedResources,
@@ -470,6 +484,7 @@ ToggleAction g_actions[] = {
     {"StealthMode", "Stealth Mode", &g_stealthMode, false, 0},
     {"NoReload", "No Reload", &g_noReload, false, 0},
     {"NoFallDamage", "No Fall Damage", &g_noFallDamage, false, 0},
+    {"AllowEagleVisionWhileSprinting", "Allow Eagle Vision while sprinting", &g_allowEagleVisionWhileSprinting, false, 0},
     {"KillCiviliansNoDesync", "Kill civilians without desynchronization", &g_killCiviliansNoDesync, false, 0},
     {"LockConsumables", "Lock Consumables", &g_lockConsumables, false, 0},
     {"UnlimitedResources", "Unlimited Resources", &g_unlimitedResources, false, 0},
@@ -620,6 +635,7 @@ void MaintainUnlocks();
 int CountEnabledUnlocks();
 bool InstallAnimusHackPatch();
 bool InstallDebugContextPatch();
+bool InstallAllowEagleVisionWhileSprintingPatch();
 bool InstallKillCiviliansNoDesyncPatches();
 bool WritePatchedBytes(std::uintptr_t address, const std::uint8_t* bytes, std::size_t size, const char* label);
 std::uint8_t* BuildCompleteAllChallengesCave();
@@ -669,6 +685,7 @@ std::uint8_t* g_debugContextCave = nullptr;
 bool g_playerPointerPatchReady = false;
 bool g_shipPatchReady = false;
 bool g_noFallDamagePatchReady = false;
+bool g_allowEagleVisionWhileSprintingPatchReady = false;
 bool g_killCiviliansNoDesyncPatchReady = false;
 bool g_noReloadPatchReady = false;
 bool g_lockConsumablesPatchReady = false;
@@ -727,6 +744,7 @@ std::uintptr_t g_unlimitedResourcesAddress = 0;
 std::uintptr_t g_unlimitedSellingAddress = 0;
 std::uintptr_t g_harpoonGodmode1Address = 0;
 std::uintptr_t g_harpoonGodmode2Address = 0;
+std::uintptr_t g_allowEagleVisionWhileSprintingAddress = 0;
 std::uintptr_t g_killCiviliansNoDesyncAddress1 = 0;
 std::uintptr_t g_killCiviliansNoDesyncAddress2 = 0;
 std::uintptr_t g_killCiviliansEffectDurationAddress1 = 0;
@@ -2648,6 +2666,7 @@ void ToggleActionFromHotkey(int actionIndex) {
     } else if (actionIndex == kActionUnlimitedResources ||
                actionIndex == kActionUnlimitedSelling ||
                actionIndex == kActionHarpoonGodmode ||
+               actionIndex == kActionAllowEagleVisionWhileSprinting ||
                actionIndex == kActionKillCiviliansNoDesync) {
         ApplyBytePatchToggles();
     } else if (actionIndex == kActionFreezeMissionTimer) {
@@ -3219,6 +3238,7 @@ void DrawSystemTab() {
         DrawInfoRow("Player pointer hook", g_playerPointerPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Debug context hook", g_debugContextPatchReady ? "installed" : "unavailable");
         DrawInfoRow("No Fall Damage hook", g_noFallDamagePatchReady ? "installed" : "unavailable");
+        DrawInfoRow("Allow Eagle Vision while sprinting patch", g_allowEagleVisionWhileSprintingPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Kill civilians without desync patches", g_killCiviliansNoDesyncPatchReady ? "installed" : "unavailable");
         DrawInfoRow("No Reload hook", g_noReloadPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Lock Consumables hooks", g_lockConsumablesPatchReady ? "installed" : "unavailable");
@@ -3301,6 +3321,16 @@ void DrawSystemTab() {
         ImGui::TextUnformatted(g_noFallDamagePatchReady ? "ready" : "unavailable");
         ImGui::TableSetColumnIndex(3);
         ImGui::Text("%ld", g_fallDamageHits);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextUnformatted("Eagle Vision Sprint");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("0x%p", reinterpret_cast<void*>(g_allowEagleVisionWhileSprintingAddress));
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextUnformatted(g_allowEagleVisionWhileSprintingPatchReady ? "ready" : "unavailable");
+        ImGui::TableSetColumnIndex(3);
+        ImGui::TextUnformatted("-");
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
@@ -3799,6 +3829,21 @@ void DrawPlayerTab() {
         }
     } else {
         ImGui::TextDisabled("No Fall Damage unavailable: hook was not installed.");
+    }
+
+    if (g_allowEagleVisionWhileSprintingPatchReady) {
+        bool value = g_allowEagleVisionWhileSprinting;
+        if (ImGui::Checkbox("Allow Eagle Vision while sprinting", &value)) {
+            g_allowEagleVisionWhileSprinting = value;
+            ApplyBytePatchToggles();
+            Log(g_allowEagleVisionWhileSprinting ? "Allow Eagle Vision while sprinting toggled ON from ImGui." :
+                                                   "Allow Eagle Vision while sprinting toggled OFF from ImGui.");
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Allows Eagle Vision activation while the player is sprinting.");
+        }
+    } else {
+        ImGui::TextDisabled("Allow Eagle Vision while sprinting unavailable: patch was not installed.");
     }
 
     if (g_killCiviliansNoDesyncPatchReady) {
@@ -5025,6 +5070,13 @@ void ApplyBytePatchToggles() {
                            kOriginalHarpoonGodmode2Bytes,
                            sizeof(kOriginalHarpoonGodmode2Bytes),
                            "Harpoon Godmode II patch");
+    ApplyOptionalBytePatch(g_allowEagleVisionWhileSprintingPatchReady,
+                           g_allowEagleVisionWhileSprinting,
+                           g_allowEagleVisionWhileSprintingAddress,
+                           kEnabledAllowEagleVisionWhileSprintingBytes,
+                           kOriginalAllowEagleVisionWhileSprintingBytes,
+                           sizeof(kOriginalAllowEagleVisionWhileSprintingBytes),
+                           "Allow Eagle Vision while sprinting patch");
     ApplyOptionalBytePatch(g_killCiviliansNoDesyncPatchReady,
                            g_killCiviliansNoDesync,
                            g_killCiviliansNoDesyncAddress1,
@@ -5111,6 +5163,30 @@ bool InstallHarpoonGodmodePatches() {
                                            "Harpoon Godmode II patch",
                                            g_harpoonGodmode2Address);
     return harpoon1 && harpoon2;
+}
+
+bool InstallAllowEagleVisionWhileSprintingPatch() {
+    const auto patternAddress = FindMainModulePatternUnique(kAllowEagleVisionWhileSprintingPattern,
+                                                            sizeof(kAllowEagleVisionWhileSprintingPattern),
+                                                            "Allow Eagle Vision while sprinting patch");
+    if (!patternAddress) {
+        return false;
+    }
+
+    g_allowEagleVisionWhileSprintingAddress = patternAddress + kAllowEagleVisionWhileSprintingPatchOffset;
+    auto* target = reinterpret_cast<std::uint8_t*>(g_allowEagleVisionWhileSprintingAddress);
+    if (!BytesMatch(target,
+                    kOriginalAllowEagleVisionWhileSprintingBytes,
+                    sizeof(kOriginalAllowEagleVisionWhileSprintingBytes))) {
+        LogPatchMismatch("Allow Eagle Vision while sprinting patch",
+                         target,
+                         kOriginalAllowEagleVisionWhileSprintingBytes,
+                         sizeof(kOriginalAllowEagleVisionWhileSprintingBytes));
+        return false;
+    }
+
+    Logf("Allow Eagle Vision while sprinting patch ready at 0x%p.", target);
+    return true;
 }
 
 bool InstallKillCiviliansNoDesyncPatches() {
@@ -5458,6 +5534,7 @@ void InstallGameplayPatches() {
     g_playerPointerPatchReady = InstallPlayerPointerPatch();
     g_debugContextPatchReady = InstallDebugContextPatch();
     g_noFallDamagePatchReady = InstallFallDamagePatch();
+    g_allowEagleVisionWhileSprintingPatchReady = InstallAllowEagleVisionWhileSprintingPatch();
     g_killCiviliansNoDesyncPatchReady = InstallKillCiviliansNoDesyncPatches();
     g_noReloadPatchReady = InstallNoReloadPatch();
     g_lockConsumablesPatchReady = InstallLockConsumablesPatches();
@@ -5479,6 +5556,7 @@ void InstallGameplayPatches() {
     g_actions[kActionStealthMode].ready = g_playerPointerPatchReady;
     g_actions[kActionNoReload].ready = g_noReloadPatchReady;
     g_actions[kActionNoFallDamage].ready = g_noFallDamagePatchReady;
+    g_actions[kActionAllowEagleVisionWhileSprinting].ready = g_allowEagleVisionWhileSprintingPatchReady;
     g_actions[kActionKillCiviliansNoDesync].ready = g_killCiviliansNoDesyncPatchReady;
     g_actions[kActionLockConsumables].ready = g_lockConsumablesPatchReady;
     g_actions[kActionUnlimitedResources].ready = g_unlimitedResourcesPatchReady;
@@ -5502,6 +5580,9 @@ void InstallGameplayPatches() {
     }
     if (!g_noFallDamagePatchReady) {
         g_noFallDamage = false;
+    }
+    if (!g_allowEagleVisionWhileSprintingPatchReady) {
+        g_allowEagleVisionWhileSprinting = false;
     }
     if (!g_killCiviliansNoDesyncPatchReady) {
         g_killCiviliansNoDesync = false;
