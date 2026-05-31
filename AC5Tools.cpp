@@ -32,8 +32,8 @@ extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wparam
 namespace {
 
 constexpr const char* kToolName = "AC5Tools";
-constexpr const char* kToolVersion = "v1.01";
-constexpr const char* kToolTitle = "AC5Tools v1.01";
+constexpr const char* kToolVersion = "v1.02";
+constexpr const char* kToolTitle = "AC5Tools v1.02";
 constexpr const char* kSupportedGameExe = "ACC.exe";
 constexpr unsigned long long kSupportedGameExeSize = 67873496ull;
 constexpr const char* kSupportedGameExeSha256 =
@@ -1025,7 +1025,7 @@ void InitConsole() {
     if (!AllocConsole()) {
         return;
     }
-    SetConsoleTitleA("AC5Tools v1.01 Log");
+    SetConsoleTitleA("AC5Tools v1.02 Log");
     freopen_s(&g_consoleOut, "CONOUT$", "w", stdout);
     FILE* consoleErr = nullptr;
     freopen_s(&consoleErr, "CONOUT$", "w", stderr);
