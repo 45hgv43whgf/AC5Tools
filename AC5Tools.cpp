@@ -40,6 +40,16 @@ constexpr const char* kSupportedGameExeSha256 =
     "E870D89433297F978DFEB9903F37C0BB1553F35D2E7D4C7847E8C40AB6B77A84";
 constexpr int kMenuHotkeyCapture = -2;
 constexpr ULONGLONG kShipPointerFreshMs = 5000;
+constexpr std::uintptr_t kGclRingsMinigameVtableRva = 0x02ABB480;
+constexpr std::uintptr_t kRingsStateObjectOffset = 0x120;
+constexpr std::uintptr_t kRingsStateValueOffset = 0x98;
+constexpr std::uintptr_t kRingsCompletionArrayOffset = 0x68;
+constexpr std::uintptr_t kRingsCompletionCountOffset = 0x72;
+constexpr std::uintptr_t kRingsCompletionSolvedOffset = 0x08;
+constexpr std::uintptr_t kRingsCompletionBlockerOffset = 0x09;
+constexpr std::uint32_t kRingsActiveState = 3;
+constexpr std::uint32_t kRingsSolvedState = 4;
+constexpr DWORD kPcHackFinishPendingTimeoutMs = 5000;
 
 constexpr std::uint8_t kBhvAssassinPattern[] = {
     0x48, 0x8D, 0x8F, 0xA0, 0x02, 0x00, 0x00, 0x48, 0x8B, 0x52,
@@ -665,6 +675,8 @@ bool InstallKillCiviliansNoDesyncPatches();
 bool InstallTimeScalePatch();
 bool WritePatchedBytes(std::uintptr_t address, const std::uint8_t* bytes, std::size_t size, const char* label);
 std::uint8_t* BuildCompleteAllChallengesCave();
+bool FinishPcHackMinigame();
+void RequestFinishPcHackMinigame();
 
 std::uintptr_t g_mainModuleBase = 0;
 std::size_t g_mainModuleSize = 0;
@@ -748,6 +760,12 @@ volatile LONG g_timeScaleHits = 0;
 volatile LONG g_playerSuperJumpHits = 0;
 volatile LONG g_nativeGhostCalls = 0;
 volatile LONG g_globalUnlockWriteHits = 0;
+volatile LONG g_pcHackFinishAttempts = 0;
+volatile LONG g_pcHackFinishSuccesses = 0;
+volatile LONG g_pcHackFinishWorkerRunning = 0;
+volatile LONG g_pcHackFinishPending = 0;
+DWORD g_pcHackFinishPendingSince = 0;
+std::uintptr_t g_pcHackFinishPendingStateObject = 0;
 bool g_timeScaleResetPending = false;
 bool g_timeScaleAnchored = false;
 bool g_timeScaleAppliedEnabled = false;
@@ -1293,6 +1311,192 @@ std::uintptr_t FindProcessBytes(const std::uint8_t* pattern,
         address = next;
     }
     return 0;
+}
+
+bool ValidateRingsMinigameObject(std::uintptr_t object,
+                                 std::uintptr_t& stateObject,
+                                 std::uint16_t& completionCount) {
+    stateObject = 0;
+    completionCount = 0;
+
+    const std::uintptr_t expectedVtable = g_mainModuleBase + kGclRingsMinigameVtableRva;
+    std::uintptr_t vtable = 0;
+    if (!TryReadQword(object, vtable) || vtable != expectedVtable) {
+        return false;
+    }
+
+    if (!TryReadQword(object + kRingsStateObjectOffset, stateObject) || !stateObject) {
+        return false;
+    }
+
+    std::uint32_t state = 0;
+    if (!TryReadMemory(stateObject + kRingsStateValueOffset, &state, sizeof(state)) ||
+        state != kRingsActiveState) {
+        return false;
+    }
+
+    std::uintptr_t completionArray = 0;
+    if (!TryReadQword(stateObject + kRingsCompletionArrayOffset, completionArray) ||
+        !completionArray ||
+        !TryReadWord(stateObject + kRingsCompletionCountOffset, completionCount) ||
+        completionCount == 0 ||
+        completionCount > 32) {
+        return false;
+    }
+
+    for (std::uint16_t i = 0; i < completionCount; ++i) {
+        std::uintptr_t entry = 0;
+        std::uint8_t test = 0;
+        if (!TryReadQword(completionArray + static_cast<std::uintptr_t>(i) * sizeof(std::uintptr_t), entry) ||
+            !entry ||
+            !TryReadByte(entry + kRingsCompletionSolvedOffset, test) ||
+            !TryReadByte(entry + kRingsCompletionBlockerOffset, test)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+std::uintptr_t FindActiveRingsMinigameObject(std::uintptr_t& stateObject,
+                                             std::uint16_t& completionCount) {
+    stateObject = 0;
+    completionCount = 0;
+
+    const std::uintptr_t expectedVtable = g_mainModuleBase + kGclRingsMinigameVtableRva;
+    std::uint8_t needle[sizeof(expectedVtable)]{};
+    memcpy(needle, &expectedVtable, sizeof(needle));
+
+    SYSTEM_INFO systemInfo{};
+    GetSystemInfo(&systemInfo);
+    std::uintptr_t address = reinterpret_cast<std::uintptr_t>(systemInfo.lpMinimumApplicationAddress);
+    const std::uintptr_t maxAddress = reinterpret_cast<std::uintptr_t>(systemInfo.lpMaximumApplicationAddress);
+
+    while (address < maxAddress) {
+        MEMORY_BASIC_INFORMATION mbi{};
+        if (VirtualQuery(reinterpret_cast<const void*>(address), &mbi, sizeof(mbi)) != sizeof(mbi)) {
+            address += 0x1000;
+            continue;
+        }
+
+        const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(mbi.BaseAddress);
+        const std::uintptr_t next = base + mbi.RegionSize;
+        if (IsReadableRegion(mbi, true) && mbi.RegionSize >= sizeof(needle) && mbi.RegionSize < 0x08000000) {
+            const auto* bytes = reinterpret_cast<const std::uint8_t*>(base);
+            __try {
+                for (std::size_t offset = 0; offset <= mbi.RegionSize - sizeof(needle); offset += sizeof(std::uintptr_t)) {
+                    const std::uintptr_t current = base + offset;
+                    if (memcmp(bytes + offset, needle, sizeof(needle)) == 0 &&
+                        ValidateRingsMinigameObject(current, stateObject, completionCount)) {
+                        return current;
+                    }
+                }
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+            }
+        }
+
+        if (next <= address) {
+            break;
+        }
+        address = next;
+    }
+
+    return 0;
+}
+
+bool FinishPcHackMinigame() {
+    InterlockedIncrement(&g_pcHackFinishAttempts);
+    InterlockedExchange(&g_pcHackFinishPending, 0);
+    g_pcHackFinishPendingStateObject = 0;
+
+    std::uintptr_t stateObject = 0;
+    std::uint16_t completionCount = 0;
+    const std::uintptr_t object = FindActiveRingsMinigameObject(stateObject, completionCount);
+    if (!object) {
+        LogWarning("Finish current Abstergo PC Hack skipped: no active hack minigame was found.");
+        return false;
+    }
+
+    std::uintptr_t completionArray = 0;
+    if (!TryReadQword(stateObject + kRingsCompletionArrayOffset, completionArray) || !completionArray) {
+        LogWarning("Finish current Abstergo PC Hack skipped: completion array was not readable.");
+        return false;
+    }
+
+    bool wroteAny = false;
+    for (std::uint16_t i = 0; i < completionCount; ++i) {
+        std::uintptr_t entry = 0;
+        if (!TryReadQword(completionArray + static_cast<std::uintptr_t>(i) * sizeof(std::uintptr_t), entry) ||
+            !entry) {
+            LogWarning("Finish current Abstergo PC Hack skipped: completion entry was not readable.");
+            return false;
+        }
+
+        if (!TryWriteByte(entry + kRingsCompletionSolvedOffset, 1) ||
+            !TryWriteByte(entry + kRingsCompletionBlockerOffset, 0)) {
+            LogWarning("Finish current Abstergo PC Hack skipped: completion entry was not writable.");
+            return false;
+        }
+        wroteAny = true;
+    }
+
+    if (!wroteAny) {
+        LogWarning("Finish current Abstergo PC Hack skipped: no completion entries were available.");
+        return false;
+    }
+
+    InterlockedIncrement(&g_pcHackFinishSuccesses);
+    g_pcHackFinishPendingStateObject = stateObject;
+    g_pcHackFinishPendingSince = GetTickCount();
+    InterlockedExchange(&g_pcHackFinishPending, 1);
+    Logf("Finish current Abstergo PC Hack applied at 0x%p (%u entries).",
+         reinterpret_cast<void*>(object),
+         completionCount);
+    return true;
+}
+
+void UpdatePcHackFinishPending() {
+    if (InterlockedCompareExchange(&g_pcHackFinishPending, 0, 0) == 0) {
+        return;
+    }
+
+    const DWORD now = GetTickCount();
+    std::uint32_t state = 0;
+    if (!g_pcHackFinishPendingStateObject ||
+        (TryReadMemory(g_pcHackFinishPendingStateObject + kRingsStateValueOffset, &state, sizeof(state)) &&
+         state == kRingsSolvedState)) {
+        InterlockedExchange(&g_pcHackFinishPending, 0);
+        g_pcHackFinishPendingStateObject = 0;
+        return;
+    }
+
+    if (now - g_pcHackFinishPendingSince > kPcHackFinishPendingTimeoutMs) {
+        InterlockedExchange(&g_pcHackFinishPending, 0);
+        g_pcHackFinishPendingStateObject = 0;
+        LogWarning("Finish current Abstergo PC Hack pending state timed out.");
+    }
+}
+
+DWORD WINAPI FinishPcHackMinigameThread(LPVOID) {
+    FinishPcHackMinigame();
+    InterlockedExchange(&g_pcHackFinishWorkerRunning, 0);
+    return 0;
+}
+
+void RequestFinishPcHackMinigame() {
+    if (InterlockedCompareExchange(&g_pcHackFinishWorkerRunning, 1, 0) != 0) {
+        LogWarning("Finish current Abstergo PC Hack skipped: request is already running.");
+        return;
+    }
+
+    HANDLE thread = CreateThread(nullptr, 0, FinishPcHackMinigameThread, nullptr, 0, nullptr);
+    if (!thread) {
+        InterlockedExchange(&g_pcHackFinishWorkerRunning, 0);
+        LogErrorf("Finish current Abstergo PC Hack failed: worker thread could not be created, error %lu.",
+                  GetLastError());
+        return;
+    }
+    CloseHandle(thread);
 }
 
 std::uintptr_t FindUnlockRecordById(const std::uint8_t id[8]) {
@@ -3362,6 +3566,9 @@ void DrawSystemTab() {
         DrawInfoRow("Time Scale hook", g_timeScalePatchReady ? "installed" : "unavailable");
         DrawInfoRow("Player Super Jump hook", g_playerSuperJumpPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Noclip native engine path", g_nativeGhostReady ? "ready" : "unavailable");
+        DrawInfoRowf("Abstergo PC Hack finish", "%ld / %ld",
+                     g_pcHackFinishSuccesses,
+                     g_pcHackFinishAttempts);
         DrawInfoRow("Global Unlocks", g_globalUnlocksInstalled ? "installed" : "not installed");
         DrawInfoRowf("Unlock queue", "%d pending", CountEnabledUnlocks());
         DrawInfoRowf("Unlocks done this session", "%d", g_unlockRecordsPatched);
@@ -4205,6 +4412,28 @@ void DrawGameTab() {
     }
 
     ImGui::Separator();
+
+    UpdatePcHackFinishPending();
+    const bool pcHackFinishRunning = InterlockedCompareExchange(&g_pcHackFinishWorkerRunning, 0, 0) != 0;
+    const bool pcHackFinishPending = InterlockedCompareExchange(&g_pcHackFinishPending, 0, 0) != 0;
+    if (pcHackFinishRunning || pcHackFinishPending) {
+        ImGui::BeginDisabled();
+    }
+    const char* pcHackFinishLabel = "Finish current Abstergo PC Hack";
+    if (pcHackFinishRunning) {
+        pcHackFinishLabel = "Finding current Abstergo PC Hack...";
+    } else if (pcHackFinishPending) {
+        pcHackFinishLabel = "Finishing current Abstergo PC Hack...";
+    }
+    if (ImGui::Button(pcHackFinishLabel)) {
+        RequestFinishPcHackMinigame();
+    }
+    if (pcHackFinishRunning || pcHackFinishPending) {
+        ImGui::EndDisabled();
+    }
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("One-shot helper for the current Abstergo PC ring hack minigame. It only acts while an active puzzle is loaded.");
+    }
 
     if (g_freezeMissionTimerPatchReady) {
         bool value = g_freezeMissionTimer;

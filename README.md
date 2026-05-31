@@ -63,6 +63,7 @@ Player and ship supplies are clamped to `0-99`; cargo is clamped to `0-9999`; mo
 - Time Scale with configurable multiplier
 - Player Super Jump with configurable distance and height. When enabled, you may need to double tap Space to trigger the enhanced jump.
 - Noclip through the native engine ghost path, with configurable speed and Shift boost speed
+- Finish current Abstergo PC Hack: one-shot helper for the currently open ring hack minigame
 - Freeze Mission Timer
 
 ### Animus Hacks
@@ -106,6 +107,8 @@ Unlocks can irreversibly affect progression if an unlocked item was supposed to 
 `Inventory Add/Set` can be queued before the inventory pointer is ready. Load into gameplay as the player, then spend/use/buy the matching item to trigger the queued edit. For store resources/cargo and money, buying or selling at a store can trigger the queued edit.
 
 `Noclip` uses the game's native ghost movement path. Speed and Shift boost speed are restored to the game's original values when Noclip is disabled.
+
+`Finish current Abstergo PC Hack` only acts while an Abstergo PC ring hack minigame is currently open. It marks the active puzzle's internal completion checks and lets the game finish the transition normally.
 
 Most gameplay feature on/off states are session-only and are not saved. The INI saves numeric settings, hotkey bindings, System-tab options, and the menu window position/size. Unlock changes are different: if the game saves after an unlock is applied, that unlock can persist in the save.
 
