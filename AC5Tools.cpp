@@ -175,6 +175,15 @@ constexpr std::uint8_t kOriginalAllowEagleVisionWhileSprintingBytes[] = {
 constexpr std::uint8_t kEnabledAllowEagleVisionWhileSprintingBytes[] = {
     0xEB, 0x11,
 };
+constexpr std::uint8_t kInfiniteBreathPattern[] = {
+    0xF3, 0x0F, 0x59, 0xC6, 0xF3, 0x0F, 0x10, 0x75, 0x77, 0xF3, 0x0F, 0x5C,
+    0xF0, 0x0F, 0x2F, 0xF7, 0x0F, 0x82, 0x2B, 0xFF, 0xFF, 0xFF, 0xF3, 0x0F,
+    0x11, 0x75, 0x77, 0xEB, 0x05, 0xF3, 0x0F, 0x10, 0x75, 0x77,
+};
+constexpr std::ptrdiff_t kInfiniteBreathPatchOffset = 0x09;
+constexpr std::uint8_t kOriginalInfiniteBreathBytes[] = {
+    0xF3, 0x0F, 0x5C, 0xF0,
+};
 constexpr std::uint8_t kKillCiviliansNoDesyncPattern1[] = {
     0x48, 0x8B, 0x05, 0x00, 0x00, 0x00, 0x00, 0x66, 0x0F, 0xEF, 0xC0, 0xF3,
     0x0F, 0x10, 0x88, 0x90, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x87, 0x80, 0x01,
@@ -435,6 +444,7 @@ bool g_stealthMode = false;
 bool g_noReload = false;
 bool g_noFallDamage = false;
 bool g_allowEagleVisionWhileSprinting = false;
+bool g_infiniteBreath = false;
 bool g_killCiviliansNoDesync = false;
 bool g_lockConsumables = false;
 bool g_unlimitedResources = false;
@@ -463,6 +473,7 @@ enum ActionIndex {
     kActionNoReload,
     kActionNoFallDamage,
     kActionAllowEagleVisionWhileSprinting,
+    kActionInfiniteBreath,
     kActionKillCiviliansNoDesync,
     kActionLockConsumables,
     kActionUnlimitedResources,
@@ -485,6 +496,7 @@ ToggleAction g_actions[] = {
     {"NoReload", "No Reload", &g_noReload, false, 0},
     {"NoFallDamage", "No Fall Damage", &g_noFallDamage, false, 0},
     {"AllowEagleVisionWhileSprinting", "Allow Eagle Vision while sprinting", &g_allowEagleVisionWhileSprinting, false, 0},
+    {"InfiniteBreath", "Infinite Breath", &g_infiniteBreath, false, 0},
     {"KillCiviliansNoDesync", "Kill civilians without desynchronization", &g_killCiviliansNoDesync, false, 0},
     {"LockConsumables", "Lock Consumables", &g_lockConsumables, false, 0},
     {"UnlimitedResources", "Unlimited Resources", &g_unlimitedResources, false, 0},
@@ -636,6 +648,7 @@ int CountEnabledUnlocks();
 bool InstallAnimusHackPatch();
 bool InstallDebugContextPatch();
 bool InstallAllowEagleVisionWhileSprintingPatch();
+bool InstallInfiniteBreathPatch();
 bool InstallKillCiviliansNoDesyncPatches();
 bool WritePatchedBytes(std::uintptr_t address, const std::uint8_t* bytes, std::size_t size, const char* label);
 std::uint8_t* BuildCompleteAllChallengesCave();
@@ -686,6 +699,7 @@ bool g_playerPointerPatchReady = false;
 bool g_shipPatchReady = false;
 bool g_noFallDamagePatchReady = false;
 bool g_allowEagleVisionWhileSprintingPatchReady = false;
+bool g_infiniteBreathPatchReady = false;
 bool g_killCiviliansNoDesyncPatchReady = false;
 bool g_noReloadPatchReady = false;
 bool g_lockConsumablesPatchReady = false;
@@ -745,6 +759,7 @@ std::uintptr_t g_unlimitedSellingAddress = 0;
 std::uintptr_t g_harpoonGodmode1Address = 0;
 std::uintptr_t g_harpoonGodmode2Address = 0;
 std::uintptr_t g_allowEagleVisionWhileSprintingAddress = 0;
+std::uintptr_t g_infiniteBreathAddress = 0;
 std::uintptr_t g_killCiviliansNoDesyncAddress1 = 0;
 std::uintptr_t g_killCiviliansNoDesyncAddress2 = 0;
 std::uintptr_t g_killCiviliansEffectDurationAddress1 = 0;
@@ -2667,6 +2682,7 @@ void ToggleActionFromHotkey(int actionIndex) {
                actionIndex == kActionUnlimitedSelling ||
                actionIndex == kActionHarpoonGodmode ||
                actionIndex == kActionAllowEagleVisionWhileSprinting ||
+               actionIndex == kActionInfiniteBreath ||
                actionIndex == kActionKillCiviliansNoDesync) {
         ApplyBytePatchToggles();
     } else if (actionIndex == kActionFreezeMissionTimer) {
@@ -3239,6 +3255,7 @@ void DrawSystemTab() {
         DrawInfoRow("Debug context hook", g_debugContextPatchReady ? "installed" : "unavailable");
         DrawInfoRow("No Fall Damage hook", g_noFallDamagePatchReady ? "installed" : "unavailable");
         DrawInfoRow("Allow Eagle Vision while sprinting patch", g_allowEagleVisionWhileSprintingPatchReady ? "installed" : "unavailable");
+        DrawInfoRow("Infinite Breath patch", g_infiniteBreathPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Kill civilians without desync patches", g_killCiviliansNoDesyncPatchReady ? "installed" : "unavailable");
         DrawInfoRow("No Reload hook", g_noReloadPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Lock Consumables hooks", g_lockConsumablesPatchReady ? "installed" : "unavailable");
@@ -3329,6 +3346,16 @@ void DrawSystemTab() {
         ImGui::Text("0x%p", reinterpret_cast<void*>(g_allowEagleVisionWhileSprintingAddress));
         ImGui::TableSetColumnIndex(2);
         ImGui::TextUnformatted(g_allowEagleVisionWhileSprintingPatchReady ? "ready" : "unavailable");
+        ImGui::TableSetColumnIndex(3);
+        ImGui::TextUnformatted("-");
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextUnformatted("Infinite Breath");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("0x%p", reinterpret_cast<void*>(g_infiniteBreathAddress));
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextUnformatted(g_infiniteBreathPatchReady ? "ready" : "unavailable");
         ImGui::TableSetColumnIndex(3);
         ImGui::TextUnformatted("-");
 
@@ -3844,6 +3871,21 @@ void DrawPlayerTab() {
         }
     } else {
         ImGui::TextDisabled("Allow Eagle Vision while sprinting unavailable: patch was not installed.");
+    }
+
+    if (g_infiniteBreathPatchReady) {
+        bool value = g_infiniteBreath;
+        if (ImGui::Checkbox("Infinite Breath", &value)) {
+            g_infiniteBreath = value;
+            ApplyBytePatchToggles();
+            Log(g_infiniteBreath ? "Infinite Breath toggled ON from ImGui." :
+                                   "Infinite Breath toggled OFF from ImGui.");
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Stops the underwater breath meter from draining while enabled.");
+        }
+    } else {
+        ImGui::TextDisabled("Infinite Breath unavailable: patch was not installed.");
     }
 
     if (g_killCiviliansNoDesyncPatchReady) {
@@ -5077,6 +5119,13 @@ void ApplyBytePatchToggles() {
                            kOriginalAllowEagleVisionWhileSprintingBytes,
                            sizeof(kOriginalAllowEagleVisionWhileSprintingBytes),
                            "Allow Eagle Vision while sprinting patch");
+    ApplyOptionalBytePatch(g_infiniteBreathPatchReady,
+                           g_infiniteBreath,
+                           g_infiniteBreathAddress,
+                           kNop4Bytes,
+                           kOriginalInfiniteBreathBytes,
+                           sizeof(kOriginalInfiniteBreathBytes),
+                           "Infinite Breath patch");
     ApplyOptionalBytePatch(g_killCiviliansNoDesyncPatchReady,
                            g_killCiviliansNoDesync,
                            g_killCiviliansNoDesyncAddress1,
@@ -5186,6 +5235,28 @@ bool InstallAllowEagleVisionWhileSprintingPatch() {
     }
 
     Logf("Allow Eagle Vision while sprinting patch ready at 0x%p.", target);
+    return true;
+}
+
+bool InstallInfiniteBreathPatch() {
+    const auto patternAddress = FindMainModulePatternUnique(kInfiniteBreathPattern,
+                                                            sizeof(kInfiniteBreathPattern),
+                                                            "Infinite Breath patch");
+    if (!patternAddress) {
+        return false;
+    }
+
+    g_infiniteBreathAddress = patternAddress + kInfiniteBreathPatchOffset;
+    auto* target = reinterpret_cast<std::uint8_t*>(g_infiniteBreathAddress);
+    if (!BytesMatch(target, kOriginalInfiniteBreathBytes, sizeof(kOriginalInfiniteBreathBytes))) {
+        LogPatchMismatch("Infinite Breath patch",
+                         target,
+                         kOriginalInfiniteBreathBytes,
+                         sizeof(kOriginalInfiniteBreathBytes));
+        return false;
+    }
+
+    Logf("Infinite Breath patch ready at 0x%p.", target);
     return true;
 }
 
@@ -5535,6 +5606,7 @@ void InstallGameplayPatches() {
     g_debugContextPatchReady = InstallDebugContextPatch();
     g_noFallDamagePatchReady = InstallFallDamagePatch();
     g_allowEagleVisionWhileSprintingPatchReady = InstallAllowEagleVisionWhileSprintingPatch();
+    g_infiniteBreathPatchReady = InstallInfiniteBreathPatch();
     g_killCiviliansNoDesyncPatchReady = InstallKillCiviliansNoDesyncPatches();
     g_noReloadPatchReady = InstallNoReloadPatch();
     g_lockConsumablesPatchReady = InstallLockConsumablesPatches();
@@ -5557,6 +5629,7 @@ void InstallGameplayPatches() {
     g_actions[kActionNoReload].ready = g_noReloadPatchReady;
     g_actions[kActionNoFallDamage].ready = g_noFallDamagePatchReady;
     g_actions[kActionAllowEagleVisionWhileSprinting].ready = g_allowEagleVisionWhileSprintingPatchReady;
+    g_actions[kActionInfiniteBreath].ready = g_infiniteBreathPatchReady;
     g_actions[kActionKillCiviliansNoDesync].ready = g_killCiviliansNoDesyncPatchReady;
     g_actions[kActionLockConsumables].ready = g_lockConsumablesPatchReady;
     g_actions[kActionUnlimitedResources].ready = g_unlimitedResourcesPatchReady;
@@ -5583,6 +5656,9 @@ void InstallGameplayPatches() {
     }
     if (!g_allowEagleVisionWhileSprintingPatchReady) {
         g_allowEagleVisionWhileSprinting = false;
+    }
+    if (!g_infiniteBreathPatchReady) {
+        g_infiniteBreath = false;
     }
     if (!g_killCiviliansNoDesyncPatchReady) {
         g_killCiviliansNoDesync = false;

@@ -40,6 +40,7 @@ Ship and friendly-ship health refill may not visually update immediately while G
 - Unlimited Selling
 - No Fall Damage
 - Allow Eagle Vision while sprinting
+- Infinite Breath
 - Kill civilians without desynchronization: prevents civilian kills from adding desync progress and suppresses the related warning text and screen effect while enabled
 - Desynchronize Yourself: one-shot native desync action; briefly bypasses Player God Mode if it is enabled
 - Inventory Add/Set: queued one-time edits for money, player items, ship supplies, and cargo
