@@ -24,6 +24,7 @@
 #pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "winmm.lib")
 
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
@@ -367,6 +368,9 @@ using GetDeviceDataFn = HRESULT(__stdcall*)(IDirectInputDevice8A*, DWORD, LPDIDE
 using GetAsyncKeyStateFn = SHORT(WINAPI*)(int);
 using GetKeyStateFn = SHORT(WINAPI*)(int);
 using GetKeyboardStateFn = BOOL(WINAPI*)(PBYTE);
+using QueryPerformanceCounterFn = BOOL(WINAPI*)(LARGE_INTEGER*);
+using GetTickCountFn = DWORD(WINAPI*)();
+using TimeGetTimeFn = DWORD(WINAPI*)();
 
 enum class LogSeverity {
     Info,
@@ -426,6 +430,9 @@ void* g_keyboardGetDeviceDataTarget = nullptr;
 GetAsyncKeyStateFn g_originalGetAsyncKeyState = nullptr;
 GetKeyStateFn g_originalGetKeyState = nullptr;
 GetKeyboardStateFn g_originalGetKeyboardState = nullptr;
+QueryPerformanceCounterFn g_originalQueryPerformanceCounter = nullptr;
+GetTickCountFn g_originalGetTickCount = nullptr;
+TimeGetTimeFn g_originalTimeGetTime = nullptr;
 
 struct ToggleAction {
     const char* id;
@@ -453,10 +460,12 @@ bool g_harpoonGodmode = false;
 bool g_freezeMissionTimer = false;
 bool g_noclip = false;
 bool g_playerSuperSpeed = false;
+bool g_timeScale = false;
 bool g_playerSuperJump = false;
 bool g_globalUnlocksInstalled = false;
 bool g_animusHackInstalled = false;
 float g_playerSuperSpeedMultiplier = 2.75f;
+float g_timeScaleMultiplier = 1.0f;
 float g_playerSuperJumpDistance = 8.0f;
 float g_playerSuperJumpHeight = -3.0f;
 float g_noclipSpeed = 1.0f;
@@ -481,6 +490,7 @@ enum ActionIndex {
     kActionHarpoonGodmode,
     kActionFreezeMissionTimer,
     kActionPlayerSuperSpeed,
+    kActionTimeScale,
     kActionPlayerSuperJump,
     kActionNoclip,
 };
@@ -504,6 +514,7 @@ ToggleAction g_actions[] = {
     {"HarpoonGodmode", "Harpoon Godmode", &g_harpoonGodmode, false, 0},
     {"FreezeMissionTimer", "Freeze Mission Timer", &g_freezeMissionTimer, false, 0},
     {"PlayerSuperSpeed", "Player Super Speed", &g_playerSuperSpeed, false, 0},
+    {"TimeScale", "Time Scale", &g_timeScale, false, 0},
     {"PlayerSuperJump", "Player Super Jump", &g_playerSuperJump, false, 0},
     {"Noclip", "Noclip", &g_noclip, false, 0},
 };
@@ -639,6 +650,7 @@ void DesynchronizeYourself();
 void UpdatePlayerGodmodeBypass();
 void ApplyStealthMode();
 void ApplyShipOptions();
+void ApplyTimeScale();
 void ApplyBytePatchToggles();
 void CaptureNoclipSpeedDefaults(std::uintptr_t tableAddress);
 bool RestoreNoclipSpeedDefaults();
@@ -650,6 +662,7 @@ bool InstallDebugContextPatch();
 bool InstallAllowEagleVisionWhileSprintingPatch();
 bool InstallInfiniteBreathPatch();
 bool InstallKillCiviliansNoDesyncPatches();
+bool InstallTimeScalePatch();
 bool WritePatchedBytes(std::uintptr_t address, const std::uint8_t* bytes, std::size_t size, const char* label);
 std::uint8_t* BuildCompleteAllChallengesCave();
 
@@ -709,6 +722,7 @@ bool g_unlimitedResourcesPatchReady = false;
 bool g_unlimitedSellingPatchReady = false;
 bool g_harpoonGodmodePatchReady = false;
 bool g_playerSuperSpeedPatchReady = false;
+bool g_timeScalePatchReady = false;
 bool g_playerSuperJumpPatchReady = false;
 bool g_nativeGhostReady = false;
 bool g_debugContextPatchReady = false;
@@ -730,9 +744,21 @@ volatile LONG g_missionTimer1Hits = 0;
 volatile LONG g_missionTimer2Hits = 0;
 volatile LONG g_missionTimer3Hits = 0;
 volatile LONG g_playerSuperSpeedHits = 0;
+volatile LONG g_timeScaleHits = 0;
 volatile LONG g_playerSuperJumpHits = 0;
 volatile LONG g_nativeGhostCalls = 0;
 volatile LONG g_globalUnlockWriteHits = 0;
+bool g_timeScaleResetPending = false;
+bool g_timeScaleAnchored = false;
+bool g_timeScaleAppliedEnabled = false;
+float g_timeScaleAppliedMultiplier = 1.0f;
+float g_timeScaleEffectiveMultiplier = 1.0f;
+LONGLONG g_timeScaleBaseQpcReal = 0;
+LONGLONG g_timeScaleBaseQpcScaled = 0;
+DWORD g_timeScaleBaseTickReal = 0;
+DWORD g_timeScaleBaseTickScaled = 0;
+DWORD g_timeScaleBaseTimeGetTimeReal = 0;
+DWORD g_timeScaleBaseTimeGetTimeScaled = 0;
 std::uintptr_t g_playerBhvAssassin = 0;
 std::uintptr_t g_playerEntity = 0;
 std::uintptr_t g_playerHealth = 0;
@@ -767,6 +793,7 @@ std::uintptr_t g_killCiviliansEffectDurationAddress2 = 0;
 std::uintptr_t g_killCiviliansWarningDispatchAddress1 = 0;
 std::uintptr_t g_killCiviliansWarningDispatchAddress2 = 0;
 std::uintptr_t g_playerSuperSpeedAddress = 0;
+std::uintptr_t g_timeScaleAddress = 0;
 std::uintptr_t g_playerSuperJumpAddress = 0;
 std::uintptr_t g_nativeGhostAddress = 0;
 std::uintptr_t g_nativeGhostSpeedTable = 0;
@@ -2201,6 +2228,60 @@ bool CallNativeDesynchronize() {
     }
 }
 
+LONGLONG ScaledQpcValue(LONGLONG realValue) {
+    if (!g_timeScaleAnchored) {
+        return realValue;
+    }
+    const double scaledDelta = static_cast<double>(realValue - g_timeScaleBaseQpcReal) * g_timeScaleEffectiveMultiplier;
+    return g_timeScaleBaseQpcScaled + static_cast<LONGLONG>(scaledDelta);
+}
+
+DWORD ScaledTickValue(DWORD realValue, DWORD baseReal, DWORD baseScaled) {
+    if (!g_timeScaleAnchored) {
+        return realValue;
+    }
+    const DWORD delta = realValue - baseReal;
+    const double scaledDelta = static_cast<double>(delta) * g_timeScaleEffectiveMultiplier;
+    return baseScaled + static_cast<DWORD>(scaledDelta);
+}
+
+void ResetTimeScaleAnchors() {
+    if (g_originalQueryPerformanceCounter) {
+        LARGE_INTEGER now{};
+        if (g_originalQueryPerformanceCounter(&now)) {
+            g_timeScaleBaseQpcScaled = ScaledQpcValue(now.QuadPart);
+            g_timeScaleBaseQpcReal = now.QuadPart;
+        }
+    }
+    if (g_originalGetTickCount) {
+        const DWORD now = g_originalGetTickCount();
+        g_timeScaleBaseTickScaled = ScaledTickValue(now, g_timeScaleBaseTickReal, g_timeScaleBaseTickScaled);
+        g_timeScaleBaseTickReal = now;
+    }
+    if (g_originalTimeGetTime) {
+        const DWORD now = g_originalTimeGetTime();
+        g_timeScaleBaseTimeGetTimeScaled =
+            ScaledTickValue(now, g_timeScaleBaseTimeGetTimeReal, g_timeScaleBaseTimeGetTimeScaled);
+        g_timeScaleBaseTimeGetTimeReal = now;
+    }
+    g_timeScaleAnchored = true;
+    g_timeScaleEffectiveMultiplier = g_timeScale ? g_timeScaleMultiplier : 1.0f;
+}
+
+void ApplyTimeScale() {
+    if (!g_timeScalePatchReady) {
+        return;
+    }
+    if (g_timeScaleAnchored &&
+        g_timeScaleAppliedEnabled == g_timeScale &&
+        g_timeScaleAppliedMultiplier == g_timeScaleMultiplier) {
+        return;
+    }
+    ResetTimeScaleAnchors();
+    g_timeScaleAppliedEnabled = g_timeScale;
+    g_timeScaleAppliedMultiplier = g_timeScaleMultiplier;
+}
+
 void DesynchronizeYourself() {
     if ((!g_playerPointerPatchReady || !g_playerHealth) &&
         (!g_debugContextPatchReady || !g_debugContext)) {
@@ -2263,6 +2344,13 @@ void LoadConfig() {
     if (g_playerSuperSpeedMultiplier > 100.0f) {
         g_playerSuperSpeedMultiplier = 100.0f;
     }
+    g_timeScaleMultiplier = ReadIniFloat("Game", "TimeScale", 1.0f, path);
+    if (g_timeScaleMultiplier < 0.25f) {
+        g_timeScaleMultiplier = 0.25f;
+    }
+    if (g_timeScaleMultiplier > 100.0f) {
+        g_timeScaleMultiplier = 100.0f;
+    }
     g_playerSuperJumpDistance = ReadIniFloat("Game", "PlayerSuperJumpDistance", 8.0f, path);
     if (g_playerSuperJumpDistance < 0.0001f) {
         g_playerSuperJumpDistance = 0.0001f;
@@ -2321,6 +2409,8 @@ void SaveConfig() {
 
     sprintf_s(value, "%.6f", g_playerSuperSpeedMultiplier);
     WritePrivateProfileStringA("Game", "PlayerSuperSpeed", value, path);
+    sprintf_s(value, "%.6f", g_timeScaleMultiplier);
+    WritePrivateProfileStringA("Game", "TimeScale", value, path);
     sprintf_s(value, "%.6f", g_playerSuperJumpDistance);
     WritePrivateProfileStringA("Game", "PlayerSuperJumpDistance", value, path);
     sprintf_s(value, "%.6f", g_playerSuperJumpHeight);
@@ -2687,6 +2777,8 @@ void ToggleActionFromHotkey(int actionIndex) {
         ApplyBytePatchToggles();
     } else if (actionIndex == kActionFreezeMissionTimer) {
         ResetMissionTimerDeltas();
+    } else if (actionIndex == kActionTimeScale) {
+        ApplyTimeScale();
     }
     Logf("%s triggered from hotkey %s.", action.label, HotkeyName(action.hotkey));
 }
@@ -3267,6 +3359,7 @@ void DrawSystemTab() {
         DrawInfoRow("Harpoon Godmode patches", g_harpoonGodmodePatchReady ? "installed" : "unavailable");
         DrawInfoRow("Freeze Mission Timer hooks", g_freezeMissionTimerPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Player Super Speed hook", g_playerSuperSpeedPatchReady ? "installed" : "unavailable");
+        DrawInfoRow("Time Scale hook", g_timeScalePatchReady ? "installed" : "unavailable");
         DrawInfoRow("Player Super Jump hook", g_playerSuperJumpPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Noclip native engine path", g_nativeGhostReady ? "ready" : "unavailable");
         DrawInfoRow("Global Unlocks", g_globalUnlocksInstalled ? "installed" : "not installed");
@@ -3488,6 +3581,16 @@ void DrawSystemTab() {
         ImGui::TextUnformatted(g_playerSuperSpeedPatchReady ? "ready" : "unavailable");
         ImGui::TableSetColumnIndex(3);
         ImGui::Text("%ld", g_playerSuperSpeedHits);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextUnformatted("Time Scale");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("0x%p", reinterpret_cast<void*>(g_timeScaleAddress));
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextUnformatted(g_timeScalePatchReady ? "hooks ready" : "unavailable");
+        ImGui::TableSetColumnIndex(3);
+        ImGui::Text("%ld", g_timeScaleHits);
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
@@ -3955,6 +4058,45 @@ void DrawGameTab() {
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Multiplies player movement speed when the guarded player context matches.");
+    }
+
+    if (g_timeScalePatchReady) {
+        bool enabled = g_timeScale;
+        ImGui::Checkbox("##TimeScaleEnabled", &enabled);
+        if (ImGui::IsItemDeactivatedAfterEdit() || enabled != g_timeScale) {
+            g_timeScale = enabled;
+            ApplyTimeScale();
+            SaveConfig();
+            Logf("Time Scale %s value=%.6f hits=%ld hook=0x%p",
+                 g_timeScale ? "ON" : "OFF",
+                 g_timeScaleMultiplier,
+                 g_timeScaleHits,
+                 reinterpret_cast<void*>(g_timeScaleAddress));
+        }
+        ImGui::SameLine();
+    } else {
+        ImGui::TextDisabled("Time Scale unavailable: hook was not installed.");
+    }
+
+    float timeScale = g_timeScaleMultiplier;
+    ImGui::SetNextItemWidth(280.0f);
+    if (ImGui::DragFloat("Time Scale", &timeScale, 0.001f, 0.25f, 100.0f, "%.6f")) {
+        if (timeScale < 0.25f) {
+            timeScale = 0.25f;
+        }
+        if (timeScale > 100.0f) {
+            timeScale = 100.0f;
+        }
+        g_timeScaleMultiplier = timeScale;
+        ApplyTimeScale();
+        SaveConfig();
+        Logf("Time Scale value changed to %.6f hits=%ld hook=0x%p",
+             g_timeScaleMultiplier,
+             g_timeScaleHits,
+             reinterpret_cast<void*>(g_timeScaleAddress));
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Scales the game's process time reads while enabled. Minimum is 0.25 so the overlay remains usable.");
     }
 
     if (g_playerSuperJumpPatchReady) {
@@ -5546,6 +5688,92 @@ bool InstallPlayerSuperSpeedPatch() {
     return true;
 }
 
+BOOL WINAPI HookQueryPerformanceCounter(LARGE_INTEGER* counter) {
+    const BOOL result = g_originalQueryPerformanceCounter ? g_originalQueryPerformanceCounter(counter) : FALSE;
+    if (result && counter && g_timeScaleAnchored) {
+        counter->QuadPart = ScaledQpcValue(counter->QuadPart);
+        if (g_timeScale) {
+            InterlockedIncrement(&g_timeScaleHits);
+        }
+    }
+    return result;
+}
+
+DWORD WINAPI HookGetTickCount() {
+    const DWORD value = g_originalGetTickCount ? g_originalGetTickCount() : 0;
+    if (g_timeScaleAnchored) {
+        if (g_timeScale) {
+            InterlockedIncrement(&g_timeScaleHits);
+        }
+        return ScaledTickValue(value, g_timeScaleBaseTickReal, g_timeScaleBaseTickScaled);
+    }
+    return value;
+}
+
+DWORD WINAPI HookTimeGetTime() {
+    const DWORD value = g_originalTimeGetTime ? g_originalTimeGetTime() : 0;
+    if (g_timeScaleAnchored) {
+        if (g_timeScale) {
+            InterlockedIncrement(&g_timeScaleHits);
+        }
+        return ScaledTickValue(value, g_timeScaleBaseTimeGetTimeReal, g_timeScaleBaseTimeGetTimeScaled);
+    }
+    return value;
+}
+
+bool InstallTimeScalePatch() {
+    if (MH_Initialize() != MH_OK && MH_Initialize() != MH_ERROR_ALREADY_INITIALIZED) {
+        LogError("MinHook initialize failed for Time Scale hooks.");
+        return false;
+    }
+
+    bool installed = false;
+    HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
+    HMODULE winmm = GetModuleHandleA("winmm.dll");
+    if (!winmm) {
+        winmm = LoadLibraryA("winmm.dll");
+    }
+
+    if (kernel32) {
+        if (auto* qpc = reinterpret_cast<void*>(GetProcAddress(kernel32, "QueryPerformanceCounter"))) {
+            if (MH_CreateHook(qpc, &HookQueryPerformanceCounter, reinterpret_cast<void**>(&g_originalQueryPerformanceCounter)) == MH_OK &&
+                MH_EnableHook(qpc) == MH_OK) {
+                g_timeScaleAddress = reinterpret_cast<std::uintptr_t>(qpc);
+                installed = true;
+                Logf("Time Scale QueryPerformanceCounter hook installed at 0x%p.", qpc);
+            } else {
+                LogWarning("Time Scale QueryPerformanceCounter hook failed.");
+            }
+        }
+        if (auto* getTickCount = reinterpret_cast<void*>(GetProcAddress(kernel32, "GetTickCount"))) {
+            if (MH_CreateHook(getTickCount, &HookGetTickCount, reinterpret_cast<void**>(&g_originalGetTickCount)) == MH_OK &&
+                MH_EnableHook(getTickCount) == MH_OK) {
+                installed = true;
+                Logf("Time Scale GetTickCount hook installed at 0x%p.", getTickCount);
+            } else {
+                LogWarning("Time Scale GetTickCount hook failed.");
+            }
+        }
+    }
+
+    if (winmm) {
+        if (auto* timeGetTime = reinterpret_cast<void*>(GetProcAddress(winmm, "timeGetTime"))) {
+            if (MH_CreateHook(timeGetTime, &HookTimeGetTime, reinterpret_cast<void**>(&g_originalTimeGetTime)) == MH_OK &&
+                MH_EnableHook(timeGetTime) == MH_OK) {
+                installed = true;
+                Logf("Time Scale timeGetTime hook installed at 0x%p.", timeGetTime);
+            } else {
+                LogWarning("Time Scale timeGetTime hook failed.");
+            }
+        }
+    }
+
+    if (installed) {
+        ResetTimeScaleAnchors();
+    }
+    return installed;
+}
+
 bool PlayerSuperJumpBytesMatch(const std::uint8_t* target) {
     return target[0] == 0xF3 && target[1] == 0x0F && target[2] == 0x10 && target[3] == 0x35 &&
            target[8] == 0xF3 && target[9] == 0x44 && target[10] == 0x0F && target[11] == 0x10 &&
@@ -5616,6 +5844,7 @@ void InstallGameplayPatches() {
     g_harpoonGodmodePatchReady = InstallHarpoonGodmodePatches();
     g_inventoryEditPatchReady = InstallInventoryEditPatches();
     g_playerSuperSpeedPatchReady = InstallPlayerSuperSpeedPatch();
+    g_timeScalePatchReady = InstallTimeScalePatch();
     g_playerSuperJumpPatchReady = InstallPlayerSuperJumpPatch();
     RefreshNoclipReady();
     g_actions[kActionShipGodmode].ready = g_shipPatchReady;
@@ -5636,6 +5865,7 @@ void InstallGameplayPatches() {
     g_actions[kActionUnlimitedSelling].ready = g_unlimitedSellingPatchReady;
     g_actions[kActionFreezeMissionTimer].ready = g_freezeMissionTimerPatchReady;
     g_actions[kActionPlayerSuperSpeed].ready = g_playerSuperSpeedPatchReady;
+    g_actions[kActionTimeScale].ready = g_timeScalePatchReady;
     g_actions[kActionPlayerSuperJump].ready = g_playerSuperJumpPatchReady;
     g_actions[kActionNoclip].ready = g_nativeGhostReady;
     if (!g_shipPatchReady) {
@@ -5680,6 +5910,9 @@ void InstallGameplayPatches() {
     }
     if (!g_playerSuperSpeedPatchReady) {
         g_playerSuperSpeed = false;
+    }
+    if (!g_timeScalePatchReady) {
+        g_timeScale = false;
     }
     if (!g_playerSuperJumpPatchReady) {
         g_playerSuperJump = false;
@@ -6115,6 +6348,7 @@ DWORD WINAPI MainThread(void*) {
         ApplyShipOptions();
         ApplyStealthMode();
         ApplyPlayerGodmode();
+        ApplyTimeScale();
         ApplyBytePatchToggles();
         MaintainInventoryEditState();
         UpdateInventoryEditQueuedFlag();

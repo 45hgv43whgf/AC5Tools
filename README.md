@@ -60,6 +60,7 @@ Player and ship supplies are clamped to `0-99`; cargo is clamped to `0-9999`; mo
 ### Game
 
 - Player Super Speed with configurable multiplier
+- Time Scale with configurable multiplier
 - Player Super Jump with configurable distance and height. When enabled, you may need to double tap Space to trigger the enhanced jump.
 - Noclip through the native engine ghost path, with configurable speed and Shift boost speed
 - Freeze Mission Timer
