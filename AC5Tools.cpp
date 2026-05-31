@@ -163,8 +163,71 @@ constexpr std::uint8_t kOriginalHarpoonGodmodeBytes[] = {
 constexpr std::uint8_t kOriginalHarpoonGodmode2Bytes[] = {
     0xF3, 0x0F, 0x5C, 0xC6,
 };
+constexpr std::uint8_t kKillCiviliansNoDesyncPattern1[] = {
+    0x48, 0x8B, 0x05, 0x00, 0x00, 0x00, 0x00, 0x66, 0x0F, 0xEF, 0xC0, 0xF3,
+    0x0F, 0x10, 0x88, 0x90, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x87, 0x80, 0x01,
+    0x00, 0x00, 0x48, 0x8B, 0x10, 0xB8, 0x30, 0x75, 0x00, 0x00, 0x48, 0x89,
+    0x97, 0x60, 0x01, 0x00, 0x00, 0xF3, 0x48, 0x0F, 0x2A, 0xC0, 0x48, 0x85,
+    0xC0, 0x79, 0x08, 0xF3, 0x0F, 0x58, 0x05, 0xDA, 0x69, 0x49, 0x00, 0xF3,
+    0x0F, 0x59, 0xC1, 0xF3, 0x0F, 0x10, 0x0D, 0xCA, 0x69, 0x49, 0x00, 0x33,
+    0xC9, 0x0F, 0x2F, 0xC1, 0x76, 0x16, 0xF3, 0x0F, 0x5C, 0xC1, 0x0F, 0x2F,
+    0xC1, 0x73, 0x0D, 0x48, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x80, 0x48, 0x8B, 0xC8, 0xF3, 0x0F, 0x10, 0x0D, 0xD9, 0xEB, 0x4D, 0x00,
+    0xF3, 0x48, 0x0F, 0x2C, 0xC0, 0xC6, 0x87, 0x78, 0x01, 0x00, 0x00, 0x01,
+    0x4C, 0x89, 0xBF, 0x70, 0x01, 0x00, 0x00, 0x45, 0x33, 0xC9, 0x45, 0x33,
+    0xC0, 0x48, 0x03, 0xC1, 0x48, 0x03, 0xC2, 0x48, 0x89, 0x87, 0x68, 0x01,
+    0x00, 0x00, 0x48, 0x8B, 0x0D, 0xC0, 0x07, 0x45, 0x01, 0x48, 0x81, 0xC1,
+    0xB4, 0x00, 0x00, 0x00, 0x4C,
+};
+constexpr std::uint8_t kKillCiviliansNoDesyncPattern2[] = {
+    0x48, 0x8B, 0x05, 0x00, 0x00, 0x00, 0x00, 0x66, 0x0F, 0xEF, 0xC0, 0xF3,
+    0x0F, 0x10, 0x88, 0x90, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x87, 0x80, 0x01,
+    0x00, 0x00, 0x48, 0x8B, 0x10, 0xB8, 0x30, 0x75, 0x00, 0x00, 0x48, 0x89,
+    0x97, 0x60, 0x01, 0x00, 0x00, 0xF3, 0x48, 0x0F, 0x2A, 0xC0, 0x48, 0x85,
+    0xC0, 0x79, 0x08, 0xF3, 0x0F, 0x58, 0x05, 0x2A, 0x67, 0x49, 0x00, 0xF3,
+    0x0F, 0x59, 0xC1, 0xF3, 0x0F, 0x10, 0x0D, 0x1A, 0x67, 0x49, 0x00, 0x33,
+    0xC9, 0x0F, 0x2F, 0xC1, 0x76, 0x16, 0xF3, 0x0F, 0x5C, 0xC1, 0x0F, 0x2F,
+    0xC1, 0x73, 0x0D, 0x48, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x80, 0x48, 0x8B, 0xC8, 0xF3, 0x0F, 0x10, 0x0D, 0x29, 0xE9, 0x4D, 0x00,
+    0xF3, 0x48, 0x0F, 0x2C, 0xC0, 0xC6, 0x87, 0x78, 0x01, 0x00, 0x00, 0x01,
+    0x4C, 0x89, 0xBF, 0x70, 0x01, 0x00, 0x00, 0x45, 0x33, 0xC9, 0x45, 0x33,
+    0xC0, 0x48, 0x03, 0xC1, 0x48, 0x03, 0xC2, 0x48, 0x89, 0x87, 0x68, 0x01,
+    0x00, 0x00, 0x48, 0x8B, 0x0D, 0x10, 0x05, 0x45, 0x01, 0x48, 0x81, 0xC1,
+    0xB8, 0x00, 0x00, 0x00, 0x4C,
+};
+constexpr const char* kKillCiviliansNoDesyncPatternMask =
+    "xxx????xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx????xxxxxxxx????xxxxxxxx"
+    "xxxxxxxxxxxxxxxxxxxxxxxxx????xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx????xxxxxxxx"
+    "x";
+constexpr std::ptrdiff_t kKillCiviliansNoDesyncPatchOffset = 0x0B;
+constexpr std::ptrdiff_t kKillCiviliansNoDesyncEffectDurationOffset = -0x71;
+constexpr std::ptrdiff_t kKillCiviliansNoDesyncWarningDispatchOffset = 0xC2;
+constexpr std::uint8_t kOriginalKillCiviliansNoDesyncBytes[] = {
+    0xF3, 0x0F, 0x10, 0x88, 0x90, 0x00, 0x00, 0x00,
+};
+constexpr std::uint8_t kEnabledKillCiviliansNoDesyncBytes[] = {
+    0x0F, 0x57, 0xC9, 0x90, 0x90, 0x90, 0x90, 0x90,
+};
+constexpr std::uint8_t kOriginalKillCiviliansEffectDurationBytes[] = {
+    0xF3, 0x0F, 0x11, 0x74, 0x24, 0x28,
+};
+constexpr std::uint8_t kZeroKillCiviliansEffectDurationBytes[] = {
+    0xF3, 0x0F, 0x11, 0x44, 0x24, 0x28,
+};
+constexpr std::uint8_t kOriginalKillCiviliansWarningDispatch1Bytes[] = {
+    0xE9, 0xCA, 0xD2, 0x35, 0xFF,
+};
+constexpr std::uint8_t kOriginalKillCiviliansWarningDispatch2Bytes[] = {
+    0xE9, 0x1A, 0xD0, 0x35, 0xFF,
+};
+constexpr std::uint8_t kSkipKillCiviliansWarningDispatchBytes[] = {
+    0xC3, 0x90, 0x90, 0x90, 0x90,
+};
 constexpr std::uint8_t kNop3Bytes[] = {
     0x90, 0x90, 0x90,
+};
+constexpr std::uint8_t kNop5Bytes[] = {
+    0x90, 0x90, 0x90, 0x90, 0x90,
 };
 constexpr std::uint8_t kNop4Bytes[] = {
     0x90, 0x90, 0x90, 0x90,
@@ -359,6 +422,7 @@ bool g_playerGodmode = false;
 bool g_stealthMode = false;
 bool g_noReload = false;
 bool g_noFallDamage = false;
+bool g_killCiviliansNoDesync = false;
 bool g_lockConsumables = false;
 bool g_unlimitedResources = false;
 bool g_unlimitedSelling = false;
@@ -385,6 +449,7 @@ enum ActionIndex {
     kActionStealthMode,
     kActionNoReload,
     kActionNoFallDamage,
+    kActionKillCiviliansNoDesync,
     kActionLockConsumables,
     kActionUnlimitedResources,
     kActionUnlimitedSelling,
@@ -405,6 +470,7 @@ ToggleAction g_actions[] = {
     {"StealthMode", "Stealth Mode", &g_stealthMode, false, 0},
     {"NoReload", "No Reload", &g_noReload, false, 0},
     {"NoFallDamage", "No Fall Damage", &g_noFallDamage, false, 0},
+    {"KillCiviliansNoDesync", "Kill civilians without desynchronization", &g_killCiviliansNoDesync, false, 0},
     {"LockConsumables", "Lock Consumables", &g_lockConsumables, false, 0},
     {"UnlimitedResources", "Unlimited Resources", &g_unlimitedResources, false, 0},
     {"UnlimitedSelling", "Unlimited Selling", &g_unlimitedSelling, false, 0},
@@ -554,6 +620,7 @@ void MaintainUnlocks();
 int CountEnabledUnlocks();
 bool InstallAnimusHackPatch();
 bool InstallDebugContextPatch();
+bool InstallKillCiviliansNoDesyncPatches();
 bool WritePatchedBytes(std::uintptr_t address, const std::uint8_t* bytes, std::size_t size, const char* label);
 std::uint8_t* BuildCompleteAllChallengesCave();
 
@@ -602,6 +669,7 @@ std::uint8_t* g_debugContextCave = nullptr;
 bool g_playerPointerPatchReady = false;
 bool g_shipPatchReady = false;
 bool g_noFallDamagePatchReady = false;
+bool g_killCiviliansNoDesyncPatchReady = false;
 bool g_noReloadPatchReady = false;
 bool g_lockConsumablesPatchReady = false;
 bool g_inventoryEditPatchReady = false;
@@ -659,6 +727,12 @@ std::uintptr_t g_unlimitedResourcesAddress = 0;
 std::uintptr_t g_unlimitedSellingAddress = 0;
 std::uintptr_t g_harpoonGodmode1Address = 0;
 std::uintptr_t g_harpoonGodmode2Address = 0;
+std::uintptr_t g_killCiviliansNoDesyncAddress1 = 0;
+std::uintptr_t g_killCiviliansNoDesyncAddress2 = 0;
+std::uintptr_t g_killCiviliansEffectDurationAddress1 = 0;
+std::uintptr_t g_killCiviliansEffectDurationAddress2 = 0;
+std::uintptr_t g_killCiviliansWarningDispatchAddress1 = 0;
+std::uintptr_t g_killCiviliansWarningDispatchAddress2 = 0;
 std::uintptr_t g_playerSuperSpeedAddress = 0;
 std::uintptr_t g_playerSuperJumpAddress = 0;
 std::uintptr_t g_nativeGhostAddress = 0;
@@ -2573,7 +2647,8 @@ void ToggleActionFromHotkey(int actionIndex) {
         ApplyShipOptions();
     } else if (actionIndex == kActionUnlimitedResources ||
                actionIndex == kActionUnlimitedSelling ||
-               actionIndex == kActionHarpoonGodmode) {
+               actionIndex == kActionHarpoonGodmode ||
+               actionIndex == kActionKillCiviliansNoDesync) {
         ApplyBytePatchToggles();
     } else if (actionIndex == kActionFreezeMissionTimer) {
         ResetMissionTimerDeltas();
@@ -3144,6 +3219,7 @@ void DrawSystemTab() {
         DrawInfoRow("Player pointer hook", g_playerPointerPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Debug context hook", g_debugContextPatchReady ? "installed" : "unavailable");
         DrawInfoRow("No Fall Damage hook", g_noFallDamagePatchReady ? "installed" : "unavailable");
+        DrawInfoRow("Kill civilians without desync patches", g_killCiviliansNoDesyncPatchReady ? "installed" : "unavailable");
         DrawInfoRow("No Reload hook", g_noReloadPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Lock Consumables hooks", g_lockConsumablesPatchReady ? "installed" : "unavailable");
         DrawInfoRow("Inventory edit hooks", g_inventoryEditPatchReady ? "installed" : "unavailable");
@@ -3225,6 +3301,26 @@ void DrawSystemTab() {
         ImGui::TextUnformatted(g_noFallDamagePatchReady ? "ready" : "unavailable");
         ImGui::TableSetColumnIndex(3);
         ImGui::Text("%ld", g_fallDamageHits);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextUnformatted("Civilian No Desync I");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("0x%p", reinterpret_cast<void*>(g_killCiviliansNoDesyncAddress1));
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextUnformatted(g_killCiviliansNoDesyncPatchReady ? "ready" : "unavailable");
+        ImGui::TableSetColumnIndex(3);
+        ImGui::TextUnformatted("-");
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextUnformatted("Civilian No Desync II");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("0x%p", reinterpret_cast<void*>(g_killCiviliansNoDesyncAddress2));
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextUnformatted(g_killCiviliansNoDesyncPatchReady ? "ready" : "unavailable");
+        ImGui::TableSetColumnIndex(3);
+        ImGui::TextUnformatted("-");
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
@@ -3703,6 +3799,21 @@ void DrawPlayerTab() {
         }
     } else {
         ImGui::TextDisabled("No Fall Damage unavailable: hook was not installed.");
+    }
+
+    if (g_killCiviliansNoDesyncPatchReady) {
+        bool value = g_killCiviliansNoDesync;
+        if (ImGui::Checkbox("Kill civilians without desynchronization", &value)) {
+            g_killCiviliansNoDesync = value;
+            ApplyBytePatchToggles();
+            Log(g_killCiviliansNoDesync ? "Kill civilians without desynchronization toggled ON from ImGui." :
+                                          "Kill civilians without desynchronization toggled OFF from ImGui.");
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Prevents civilian kills from adding desync progress and suppresses the related warning text and screen effect while enabled.");
+        }
+    } else {
+        ImGui::TextDisabled("Kill civilians without desynchronization unavailable: patches were not installed.");
     }
 
     ImGui::Spacing();
@@ -4914,6 +5025,48 @@ void ApplyBytePatchToggles() {
                            kOriginalHarpoonGodmode2Bytes,
                            sizeof(kOriginalHarpoonGodmode2Bytes),
                            "Harpoon Godmode II patch");
+    ApplyOptionalBytePatch(g_killCiviliansNoDesyncPatchReady,
+                           g_killCiviliansNoDesync,
+                           g_killCiviliansNoDesyncAddress1,
+                           kEnabledKillCiviliansNoDesyncBytes,
+                           kOriginalKillCiviliansNoDesyncBytes,
+                           sizeof(kOriginalKillCiviliansNoDesyncBytes),
+                           "Kill civilians without desynchronization patch I");
+    ApplyOptionalBytePatch(g_killCiviliansNoDesyncPatchReady,
+                           g_killCiviliansNoDesync,
+                           g_killCiviliansNoDesyncAddress2,
+                           kEnabledKillCiviliansNoDesyncBytes,
+                           kOriginalKillCiviliansNoDesyncBytes,
+                           sizeof(kOriginalKillCiviliansNoDesyncBytes),
+                           "Kill civilians without desynchronization patch II");
+    ApplyOptionalBytePatch(g_killCiviliansNoDesyncPatchReady,
+                           g_killCiviliansNoDesync,
+                           g_killCiviliansEffectDurationAddress1,
+                           kZeroKillCiviliansEffectDurationBytes,
+                           kOriginalKillCiviliansEffectDurationBytes,
+                           sizeof(kOriginalKillCiviliansEffectDurationBytes),
+                           "Kill civilians screen effect duration patch I");
+    ApplyOptionalBytePatch(g_killCiviliansNoDesyncPatchReady,
+                           g_killCiviliansNoDesync,
+                           g_killCiviliansEffectDurationAddress2,
+                           kZeroKillCiviliansEffectDurationBytes,
+                           kOriginalKillCiviliansEffectDurationBytes,
+                           sizeof(kOriginalKillCiviliansEffectDurationBytes),
+                           "Kill civilians screen effect duration patch II");
+    ApplyOptionalBytePatch(g_killCiviliansNoDesyncPatchReady,
+                           g_killCiviliansNoDesync,
+                           g_killCiviliansWarningDispatchAddress1,
+                           kSkipKillCiviliansWarningDispatchBytes,
+                           kOriginalKillCiviliansWarningDispatch1Bytes,
+                           sizeof(kOriginalKillCiviliansWarningDispatch1Bytes),
+                           "Kill civilians warning dispatch patch I");
+    ApplyOptionalBytePatch(g_killCiviliansNoDesyncPatchReady,
+                           g_killCiviliansNoDesync,
+                           g_killCiviliansWarningDispatchAddress2,
+                           kSkipKillCiviliansWarningDispatchBytes,
+                           kOriginalKillCiviliansWarningDispatch2Bytes,
+                           sizeof(kOriginalKillCiviliansWarningDispatch2Bytes),
+                           "Kill civilians warning dispatch patch II");
 }
 
 bool InstallUnlimitedResourcesPatch() {
@@ -4958,6 +5111,92 @@ bool InstallHarpoonGodmodePatches() {
                                            "Harpoon Godmode II patch",
                                            g_harpoonGodmode2Address);
     return harpoon1 && harpoon2;
+}
+
+bool InstallKillCiviliansNoDesyncPatches() {
+    const auto patternAddress1 = FindMainModuleMaskedPatternUnique(kKillCiviliansNoDesyncPattern1,
+                                                                   kKillCiviliansNoDesyncPatternMask,
+                                                                   sizeof(kKillCiviliansNoDesyncPattern1),
+                                                                   "Kill civilians without desynchronization patch I");
+    const auto patternAddress2 = FindMainModuleMaskedPatternUnique(kKillCiviliansNoDesyncPattern2,
+                                                                   kKillCiviliansNoDesyncPatternMask,
+                                                                   sizeof(kKillCiviliansNoDesyncPattern2),
+                                                                   "Kill civilians without desynchronization patch II");
+    if (!patternAddress1 || !patternAddress2) {
+        return false;
+    }
+
+    g_killCiviliansNoDesyncAddress1 = patternAddress1 + kKillCiviliansNoDesyncPatchOffset;
+    g_killCiviliansNoDesyncAddress2 = patternAddress2 + kKillCiviliansNoDesyncPatchOffset;
+    g_killCiviliansEffectDurationAddress1 = patternAddress1 + kKillCiviliansNoDesyncEffectDurationOffset;
+    g_killCiviliansEffectDurationAddress2 = patternAddress2 + kKillCiviliansNoDesyncEffectDurationOffset;
+    g_killCiviliansWarningDispatchAddress1 = patternAddress1 + kKillCiviliansNoDesyncWarningDispatchOffset;
+    g_killCiviliansWarningDispatchAddress2 = patternAddress2 + kKillCiviliansNoDesyncWarningDispatchOffset;
+    auto* target1 = reinterpret_cast<std::uint8_t*>(g_killCiviliansNoDesyncAddress1);
+    auto* target2 = reinterpret_cast<std::uint8_t*>(g_killCiviliansNoDesyncAddress2);
+    auto* effectTarget1 = reinterpret_cast<std::uint8_t*>(g_killCiviliansEffectDurationAddress1);
+    auto* effectTarget2 = reinterpret_cast<std::uint8_t*>(g_killCiviliansEffectDurationAddress2);
+    auto* dispatchTarget1 = reinterpret_cast<std::uint8_t*>(g_killCiviliansWarningDispatchAddress1);
+    auto* dispatchTarget2 = reinterpret_cast<std::uint8_t*>(g_killCiviliansWarningDispatchAddress2);
+    if (!BytesMatch(target1, kOriginalKillCiviliansNoDesyncBytes, sizeof(kOriginalKillCiviliansNoDesyncBytes))) {
+        LogPatchMismatch("Kill civilians without desynchronization patch I",
+                         target1,
+                         kOriginalKillCiviliansNoDesyncBytes,
+                         sizeof(kOriginalKillCiviliansNoDesyncBytes));
+        return false;
+    }
+    if (!BytesMatch(target2, kOriginalKillCiviliansNoDesyncBytes, sizeof(kOriginalKillCiviliansNoDesyncBytes))) {
+        LogPatchMismatch("Kill civilians without desynchronization patch II",
+                         target2,
+                         kOriginalKillCiviliansNoDesyncBytes,
+                         sizeof(kOriginalKillCiviliansNoDesyncBytes));
+        return false;
+    }
+    if (!BytesMatch(effectTarget1,
+                    kOriginalKillCiviliansEffectDurationBytes,
+                    sizeof(kOriginalKillCiviliansEffectDurationBytes))) {
+        LogPatchMismatch("Kill civilians screen effect duration patch I",
+                         effectTarget1,
+                         kOriginalKillCiviliansEffectDurationBytes,
+                         sizeof(kOriginalKillCiviliansEffectDurationBytes));
+        return false;
+    }
+    if (!BytesMatch(effectTarget2,
+                    kOriginalKillCiviliansEffectDurationBytes,
+                    sizeof(kOriginalKillCiviliansEffectDurationBytes))) {
+        LogPatchMismatch("Kill civilians screen effect duration patch II",
+                         effectTarget2,
+                         kOriginalKillCiviliansEffectDurationBytes,
+                         sizeof(kOriginalKillCiviliansEffectDurationBytes));
+        return false;
+    }
+    if (!BytesMatch(dispatchTarget1,
+                    kOriginalKillCiviliansWarningDispatch1Bytes,
+                    sizeof(kOriginalKillCiviliansWarningDispatch1Bytes))) {
+        LogPatchMismatch("Kill civilians warning dispatch patch I",
+                         dispatchTarget1,
+                         kOriginalKillCiviliansWarningDispatch1Bytes,
+                         sizeof(kOriginalKillCiviliansWarningDispatch1Bytes));
+        return false;
+    }
+    if (!BytesMatch(dispatchTarget2,
+                    kOriginalKillCiviliansWarningDispatch2Bytes,
+                    sizeof(kOriginalKillCiviliansWarningDispatch2Bytes))) {
+        LogPatchMismatch("Kill civilians warning dispatch patch II",
+                         dispatchTarget2,
+                         kOriginalKillCiviliansWarningDispatch2Bytes,
+                         sizeof(kOriginalKillCiviliansWarningDispatch2Bytes));
+        return false;
+    }
+
+    Logf("Kill civilians without desynchronization patches ready at 0x%p, 0x%p, 0x%p, 0x%p, 0x%p, and 0x%p.",
+         target1,
+         target2,
+         effectTarget1,
+         effectTarget2,
+         dispatchTarget1,
+         dispatchTarget2);
+    return true;
 }
 
 bool InstallGlobalUnlocksPatch() {
@@ -5219,6 +5458,7 @@ void InstallGameplayPatches() {
     g_playerPointerPatchReady = InstallPlayerPointerPatch();
     g_debugContextPatchReady = InstallDebugContextPatch();
     g_noFallDamagePatchReady = InstallFallDamagePatch();
+    g_killCiviliansNoDesyncPatchReady = InstallKillCiviliansNoDesyncPatches();
     g_noReloadPatchReady = InstallNoReloadPatch();
     g_lockConsumablesPatchReady = InstallLockConsumablesPatches();
     g_unlimitedResourcesPatchReady = InstallUnlimitedResourcesPatch();
@@ -5239,6 +5479,7 @@ void InstallGameplayPatches() {
     g_actions[kActionStealthMode].ready = g_playerPointerPatchReady;
     g_actions[kActionNoReload].ready = g_noReloadPatchReady;
     g_actions[kActionNoFallDamage].ready = g_noFallDamagePatchReady;
+    g_actions[kActionKillCiviliansNoDesync].ready = g_killCiviliansNoDesyncPatchReady;
     g_actions[kActionLockConsumables].ready = g_lockConsumablesPatchReady;
     g_actions[kActionUnlimitedResources].ready = g_unlimitedResourcesPatchReady;
     g_actions[kActionUnlimitedSelling].ready = g_unlimitedSellingPatchReady;
@@ -5261,6 +5502,9 @@ void InstallGameplayPatches() {
     }
     if (!g_noFallDamagePatchReady) {
         g_noFallDamage = false;
+    }
+    if (!g_killCiviliansNoDesyncPatchReady) {
+        g_killCiviliansNoDesync = false;
     }
     if (!g_noReloadPatchReady) {
         g_noReload = false;
