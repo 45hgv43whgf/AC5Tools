@@ -32,8 +32,8 @@ extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wparam
 namespace {
 
 constexpr const char* kToolName = "AC5Tools";
-constexpr const char* kToolVersion = "v1.02";
-constexpr const char* kToolTitle = "AC5Tools v1.02";
+constexpr const char* kToolVersion = "v1.03";
+constexpr const char* kToolTitle = "AC5Tools v1.03";
 constexpr const char* kSupportedGameExe = "ACC.exe";
 constexpr unsigned long long kSupportedGameExeSize = 67873496ull;
 constexpr const char* kSupportedGameExeSha256 =
@@ -338,7 +338,17 @@ constexpr std::uintptr_t kNativeGhostStateValueRva = 0x1A5590;
 constexpr std::uintptr_t kNativeGhostEnableRva = 0x12446A0;
 constexpr std::uintptr_t kNativeGhostDisableRva = 0x1244730;
 constexpr std::uintptr_t kNativeGhostSpeedTablePtrRva = 0x3315FC8;
+constexpr std::uintptr_t kDebugRefillPlayerHealthOffset = 0x81E;
+constexpr std::uintptr_t kDebugResetConflictOffset = 0x8D5;
+constexpr std::uintptr_t kDebugRefillAllEquipmentOffset = 0x990;
 constexpr std::uintptr_t kDebugNukeYourselfOffset = 0xA51;
+constexpr std::uintptr_t kDebugDecreaseNotorietyOffset = 0x1254;
+constexpr std::uintptr_t kDebugIncreaseNotorietyOffset = 0x1315;
+constexpr std::uintptr_t kDebugDecreaseWantedLevelOffset = 0x13D6;
+constexpr std::uintptr_t kDebugIncreaseWantedLevelOffset = 0x1497;
+constexpr std::uintptr_t kDebugTogglePlayerVanishOffset = 0x1558;
+constexpr std::uintptr_t kDebugUnfogCurrentMapOffset = 0x1619;
+constexpr std::uintptr_t kDebugUnlockAllWorldUpgradesOffset = 0x179B;
 constexpr std::uintptr_t kPlayerHealthValueOffset = 0xB0;
 constexpr std::uintptr_t kPlayerGodmodeFlagOffset = 0xB6;
 constexpr ULONGLONG kPlayerGodmodeBypassMs = 1000;
@@ -503,6 +513,16 @@ enum ActionIndex {
     kActionTimeScale,
     kActionPlayerSuperJump,
     kActionNoclip,
+    kActionRefillPlayerHealth,
+    kActionResetConflict,
+    kActionRefillAllEquipment,
+    kActionTogglePlayerVanish,
+    kActionDecreaseNotoriety,
+    kActionIncreaseNotoriety,
+    kActionDecreaseWantedLevel,
+    kActionIncreaseWantedLevel,
+    kActionUnfogCurrentMap,
+    kActionUnlockAllWorldUpgrades,
 };
 
 ToggleAction g_actions[] = {
@@ -527,6 +547,16 @@ ToggleAction g_actions[] = {
     {"TimeScale", "Time Scale", &g_timeScale, false, 0},
     {"PlayerSuperJump", "Player Super Jump", &g_playerSuperJump, false, 0},
     {"Noclip", "Noclip", &g_noclip, false, 0},
+    {"RefillPlayerHealth", "Refill Player's Health", nullptr, false, 0},
+    {"ResetConflict", "Reset Conflict", nullptr, false, 0},
+    {"RefillAllEquipment", "Refill All Equipment", nullptr, false, 0},
+    {"TogglePlayerVanish", "Toggle Player Vanish", nullptr, false, 0},
+    {"DecreaseNotoriety", "Decrease Notoriety", nullptr, false, 0},
+    {"IncreaseNotoriety", "Increase Notoriety", nullptr, false, 0},
+    {"DecreaseWantedLevel", "Decrease Wanted Level", nullptr, false, 0},
+    {"IncreaseWantedLevel", "Increase Wanted Level", nullptr, false, 0},
+    {"UnfogCurrentMap", "Unfog Current Map", nullptr, false, 0},
+    {"UnlockAllWorldUpgrades", "Unlock All World Upgrades", nullptr, false, 0},
 };
 constexpr int kActionCount = sizeof(g_actions) / sizeof(g_actions[0]);
 
@@ -663,6 +693,8 @@ void ApplyShipOptions();
 void ApplyTimeScale();
 void ApplyBytePatchToggles();
 void CaptureNoclipSpeedDefaults(std::uintptr_t tableAddress);
+bool CallNativeDebugAction(std::uintptr_t offset, const char* actionName, std::uint64_t eventCode = 1);
+void DrawDebugActionButton(int actionIndex, bool debugReady);
 bool RestoreNoclipSpeedDefaults();
 bool InstallGlobalUnlocksPatch();
 void MaintainUnlocks();
@@ -1025,7 +1057,7 @@ void InitConsole() {
     if (!AllocConsole()) {
         return;
     }
-    SetConsoleTitleA("AC5Tools v1.02 Log");
+    SetConsoleTitleA("AC5Tools v1.03 Log");
     freopen_s(&g_consoleOut, "CONOUT$", "w", stdout);
     FILE* consoleErr = nullptr;
     freopen_s(&consoleErr, "CONOUT$", "w", stderr);
@@ -1269,6 +1301,34 @@ bool IsReadableRegion(const MEMORY_BASIC_INFORMATION& mbi, bool requireNonExecut
         return false;
     }
     return true;
+}
+
+bool IsWritableProtect(DWORD protect) {
+    const DWORD p = protect & 0xFF;
+    return p == PAGE_READWRITE || p == PAGE_WRITECOPY ||
+           p == PAGE_EXECUTE_READWRITE || p == PAGE_EXECUTE_WRITECOPY;
+}
+
+bool IsWritableMemoryRange(std::uintptr_t address, std::size_t size) {
+    if (!address || !size) {
+        return false;
+    }
+
+    MEMORY_BASIC_INFORMATION mbi{};
+    if (VirtualQuery(reinterpret_cast<const void*>(address), &mbi, sizeof(mbi)) != sizeof(mbi)) {
+        return false;
+    }
+
+    const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(mbi.BaseAddress);
+    const std::uintptr_t end = address + size;
+    const std::uintptr_t regionEnd = base + mbi.RegionSize;
+    if (end < address || address < base || end > regionEnd) {
+        return false;
+    }
+    return mbi.State == MEM_COMMIT &&
+           !(mbi.Protect & PAGE_GUARD) &&
+           !(mbi.Protect & PAGE_NOACCESS) &&
+           IsWritableProtect(mbi.Protect);
 }
 
 std::uintptr_t FindProcessBytes(const std::uint8_t* pattern,
@@ -1689,6 +1749,9 @@ void MaintainInventoryEditState() {
 std::uintptr_t ResolvePointerChain(std::uintptr_t base, const std::size_t* offsets, int count) {
     std::uintptr_t address = base;
     for (int i = 0; i < count - 1; ++i) {
+        if (!IsWritableMemoryRange(address + offsets[i], sizeof(std::uintptr_t))) {
+            return 0;
+        }
         address = *reinterpret_cast<std::uintptr_t*>(address + offsets[i]);
         if (!address) {
             return 0;
@@ -1700,7 +1763,7 @@ std::uintptr_t ResolvePointerChain(std::uintptr_t base, const std::size_t* offse
 void WriteShipReloadTimer(std::uintptr_t ship, std::size_t weaponOffset) {
     const std::size_t offsets[] = {0xB8, weaponOffset, 0x0, 0xAC};
     const auto timerAddress = ResolvePointerChain(ship, offsets, 4);
-    if (timerAddress) {
+    if (timerAddress && IsWritableMemoryRange(timerAddress, sizeof(float))) {
         *reinterpret_cast<float*>(timerAddress) = 0.0f;
     }
 }
@@ -1710,6 +1773,11 @@ bool IsSaneHealthValue(float value) {
 }
 
 void TopUpShipHealth(std::uintptr_t ship) {
+    if (!IsWritableMemoryRange(ship + 0x268, sizeof(float) * 2) ||
+        !IsWritableMemoryRange(ship + 0x7B0, sizeof(float))) {
+        return;
+    }
+
     const float maxHealth = *reinterpret_cast<float*>(ship + 0x268);
     if (!IsSaneHealthValue(maxHealth)) {
         return;
@@ -1719,7 +1787,9 @@ void TopUpShipHealth(std::uintptr_t ship) {
     *reinterpret_cast<float*>(ship + 0x7B0) = maxHealth;
 
     const auto healthStruct = *reinterpret_cast<std::uintptr_t*>(ship + 0xB8);
-    if (healthStruct) {
+    if (healthStruct &&
+        IsWritableMemoryRange(healthStruct + 0x2BC, sizeof(float)) &&
+        IsWritableMemoryRange(healthStruct + 0x2CC, sizeof(float))) {
         *reinterpret_cast<float*>(healthStruct + 0x2CC) = 0.0f;
         *reinterpret_cast<float*>(healthStruct + 0x2BC) = maxHealth;
     }
@@ -1734,11 +1804,12 @@ std::uint16_t ReadShipType(std::uintptr_t ship) {
 }
 
 void ApplyShipOptionsTo(std::uintptr_t ship) {
-    *reinterpret_cast<std::uint8_t*>(ship + 0x464) = g_shipGodmode ? 1 : 0;
-    if (g_shipGodmode) {
-        TopUpShipHealth(ship);
+    if (IsWritableMemoryRange(ship + 0x464, sizeof(std::uint8_t))) {
+        *reinterpret_cast<std::uint8_t*>(ship + 0x464) = g_shipGodmode ? 1 : 0;
     }
-    *reinterpret_cast<std::uint8_t*>(ship + 0x7E4) = g_shipStealthMode ? 0 : 1;
+    if (IsWritableMemoryRange(ship + 0x7E4, sizeof(std::uint8_t))) {
+        *reinterpret_cast<std::uint8_t*>(ship + 0x7E4) = g_shipStealthMode ? 0 : 1;
+    }
     if (g_noCannonCooldown) {
         WriteShipReloadTimer(ship, 0x50); // Broadside cannon
         WriteShipReloadTimer(ship, 0x88); // Heavy shot
@@ -1802,23 +1873,18 @@ void CaptureShipPointer(void* ship) {
     }
 
     const auto shipAddress = reinterpret_cast<std::uintptr_t>(ship);
-    g_gclShip = shipAddress;
-    g_gclShipLastSeen = GetTickCount64();
     const auto shipType = ReadShipType(shipAddress);
-    if (shipType == 2) {
-        InterlockedIncrement(&g_allyShipHits);
-        g_allyShip = shipAddress;
-        g_allyShipLastSeen = g_gclShipLastSeen;
-        __try {
-            ApplyAllyShipGodmodeTo(shipAddress);
-        } __except (EXCEPTION_EXECUTE_HANDLER) {
-            LogError("Ally Godmode capture skipped after invalid friendly ship pointer access.");
-            ClearAllyShipPointer();
-        }
+    if (shipType == 0) {
+        g_gclShip = shipAddress;
+        g_gclShipLastSeen = GetTickCount64();
         return;
     }
 
-    ApplyShipOptions();
+    if (shipType == 2) {
+        InterlockedIncrement(&g_allyShipHits);
+        g_allyShip = shipAddress;
+        g_allyShipLastSeen = GetTickCount64();
+    }
 }
 
 void ResetMissionTimerDeltas() {
@@ -2407,29 +2473,35 @@ bool ResolveDebugFunction(std::uintptr_t offset, std::uintptr_t& functionAddress
     }
 }
 
-bool CallNativeDesynchronize() {
+bool CallNativeDebugAction(std::uintptr_t offset, const char* actionName, std::uint64_t eventCode) {
     if (!g_debugContextPatchReady || !g_debugContext) {
         return false;
     }
 
     std::uintptr_t functionAddress = 0;
-    if (!ResolveDebugFunction(kDebugNukeYourselfOffset, functionAddress)) {
-        LogError("Desynchronize Yourself native call unavailable: function target could not be resolved.");
+    if (!ResolveDebugFunction(offset, functionAddress)) {
+        LogErrorf("%s native call unavailable: function target could not be resolved.", actionName);
         return false;
     }
 
     using DebugActionFn = void (*)(std::uint64_t, void*);
     auto action = reinterpret_cast<DebugActionFn>(functionAddress);
     __try {
-        action(1, reinterpret_cast<void*>(g_debugContext));
-        Logf("Desynchronize Yourself native call triggered at 0x%p with context 0x%p.",
+        action(eventCode, reinterpret_cast<void*>(g_debugContext));
+        Logf("%s native call triggered at 0x%p with context 0x%p event=%llu.",
+             actionName,
              reinterpret_cast<void*>(functionAddress),
-             reinterpret_cast<void*>(g_debugContext));
+             reinterpret_cast<void*>(g_debugContext),
+             static_cast<unsigned long long>(eventCode));
         return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        LogError("Desynchronize Yourself native call failed after guarded exception.");
+        LogErrorf("%s native call failed after guarded exception.", actionName);
         return false;
     }
+}
+
+bool CallNativeDesynchronize() {
+    return CallNativeDebugAction(kDebugNukeYourselfOffset, "Desynchronize Yourself");
 }
 
 LONGLONG ScaledQpcValue(LONGLONG realValue) {
@@ -2944,6 +3016,44 @@ bool SetEngineGhostRequested(bool enabled, const char* source) {
     return SetNativeGhostRequested(enabled, source);
 }
 
+bool DebugActionOffsetForAction(int actionIndex, std::uintptr_t& offset, std::uint64_t& eventCode) {
+    eventCode = 1;
+    switch (actionIndex) {
+        case kActionRefillPlayerHealth: offset = kDebugRefillPlayerHealthOffset; return true;
+        case kActionResetConflict: offset = kDebugResetConflictOffset; return true;
+        case kActionRefillAllEquipment: offset = kDebugRefillAllEquipmentOffset; return true;
+        case kActionTogglePlayerVanish: offset = kDebugTogglePlayerVanishOffset; return true;
+        case kActionDecreaseNotoriety: offset = kDebugDecreaseNotorietyOffset; return true;
+        case kActionIncreaseNotoriety: offset = kDebugIncreaseNotorietyOffset; return true;
+        case kActionDecreaseWantedLevel: offset = kDebugDecreaseWantedLevelOffset; return true;
+        case kActionIncreaseWantedLevel: offset = kDebugIncreaseWantedLevelOffset; return true;
+        case kActionUnfogCurrentMap: offset = kDebugUnfogCurrentMapOffset; return true;
+        case kActionUnlockAllWorldUpgrades: offset = kDebugUnlockAllWorldUpgradesOffset; return true;
+        default: return false;
+    }
+}
+
+bool TriggerDebugAction(int actionIndex, const char* source) {
+    if (actionIndex < 0 || actionIndex >= kActionCount) {
+        return false;
+    }
+    if (!g_debugContextPatchReady || !g_debugContext) {
+        LogErrorf("%s unavailable: debug context is not ready.", g_actions[actionIndex].label);
+        return false;
+    }
+
+    std::uintptr_t offset = 0;
+    std::uint64_t eventCode = 1;
+    if (!DebugActionOffsetForAction(actionIndex, offset, eventCode)) {
+        return false;
+    }
+    const bool ok = CallNativeDebugAction(offset, g_actions[actionIndex].label, eventCode);
+    if (ok) {
+        Logf("%s triggered from %s.", g_actions[actionIndex].label, source);
+    }
+    return ok;
+}
+
 void ToggleActionFromHotkey(int actionIndex) {
     if (actionIndex < 0 || actionIndex >= kActionCount) {
         return;
@@ -2960,6 +3070,12 @@ void ToggleActionFromHotkey(int actionIndex) {
         DesynchronizeYourself();
         return;
     }
+    std::uintptr_t debugOffset = 0;
+    std::uint64_t debugEventCode = 1;
+    if (DebugActionOffsetForAction(actionIndex, debugOffset, debugEventCode)) {
+        TriggerDebugAction(actionIndex, HotkeyName(action.hotkey));
+        return;
+    }
     if (action.value) {
         *action.value = !*action.value;
     }
@@ -2967,11 +3083,6 @@ void ToggleActionFromHotkey(int actionIndex) {
         ApplyPlayerGodmode();
     } else if (actionIndex == kActionStealthMode) {
         ApplyStealthMode();
-    } else if (actionIndex == kActionShipGodmode ||
-               actionIndex == kActionNoCannonCooldown ||
-               actionIndex == kActionAllyGodmode ||
-               actionIndex == kActionShipStealthMode) {
-        ApplyShipOptions();
     } else if (actionIndex == kActionUnlimitedResources ||
                actionIndex == kActionUnlimitedSelling ||
                actionIndex == kActionHarpoonGodmode ||
@@ -3892,7 +4003,6 @@ void DrawShipTab() {
     bool godmode = g_shipGodmode;
     if (ImGui::Checkbox("God Mode", &godmode)) {
         g_shipGodmode = godmode;
-        ApplyShipOptions();
         Log(g_shipGodmode ? "Ship God Mode toggled ON from ImGui." :
                             "Ship God Mode toggled OFF from ImGui.");
     }
@@ -3903,7 +4013,6 @@ void DrawShipTab() {
     bool allyGodmode = g_allyGodmode;
     if (ImGui::Checkbox("Ally Godmode", &allyGodmode)) {
         g_allyGodmode = allyGodmode;
-        ApplyShipOptions();
         Log(g_allyGodmode ? "Ally Godmode toggled ON from ImGui." :
                             "Ally Godmode toggled OFF from ImGui.");
     }
@@ -3914,7 +4023,6 @@ void DrawShipTab() {
     bool stealth = g_shipStealthMode;
     if (ImGui::Checkbox("Stealth Mode", &stealth)) {
         g_shipStealthMode = stealth;
-        ApplyShipOptions();
         Log(g_shipStealthMode ? "Ship Stealth Mode toggled ON from ImGui." :
                                 "Ship Stealth Mode toggled OFF from ImGui.");
     }
@@ -3925,7 +4033,6 @@ void DrawShipTab() {
     bool instantReload = g_noCannonCooldown;
     if (ImGui::Checkbox("Instant Reload", &instantReload)) {
         g_noCannonCooldown = instantReload;
-        ApplyShipOptions();
         Log(g_noCannonCooldown ? "Ship Instant Reload toggled ON from ImGui." :
                                  "Ship Instant Reload toggled OFF from ImGui.");
     }
@@ -3947,6 +4054,12 @@ void DrawShipTab() {
     } else {
         ImGui::TextDisabled("Harpoon Godmode unavailable: patches were not installed.");
     }
+
+    ImGui::Spacing();
+    const bool debugReady = g_debugContextPatchReady && g_debugContext != 0;
+    DrawDebugActionButton(kActionDecreaseWantedLevel, debugReady);
+    ImGui::SameLine();
+    DrawDebugActionButton(kActionIncreaseWantedLevel, debugReady);
 
     const bool shipPointerFresh = g_gclShip && IsFreshShipPointer(g_gclShipLastSeen);
     if (!shipPointerFresh) {
@@ -4081,6 +4194,8 @@ void DrawPlayerTab() {
             Log(g_playerGodmode ? "Player God Mode toggled ON from ImGui." :
                                   "Player God Mode toggled OFF from ImGui.");
         }
+        const bool debugReady = g_debugContextPatchReady && g_debugContext != 0;
+        DrawDebugActionButton(kActionRefillPlayerHealth, debugReady);
         if (!g_playerHealth) {
             ImGui::TextDisabled("Waiting for player health pointer; load into gameplay.");
         }
@@ -4098,6 +4213,8 @@ void DrawPlayerTab() {
         ImGui::TextDisabled("God Mode unavailable: player pointer hook was not installed.");
         ImGui::TextDisabled("Stealth Mode unavailable: player pointer hook was not installed.");
     }
+
+    const bool debugReady = g_debugContextPatchReady && g_debugContext != 0;
 
     if (g_noReloadPatchReady) {
         bool value = g_noReload;
@@ -4214,6 +4331,13 @@ void DrawPlayerTab() {
     }
 
     ImGui::Spacing();
+    DrawDebugActionButton(kActionDecreaseNotoriety, debugReady);
+    ImGui::SameLine();
+    DrawDebugActionButton(kActionIncreaseNotoriety, debugReady);
+    DrawDebugActionButton(kActionRefillAllEquipment, debugReady);
+    DrawDebugActionButton(kActionTogglePlayerVanish, debugReady);
+
+    ImGui::Spacing();
     const bool desyncReady = g_playerHealth != 0 || (g_debugContextPatchReady && g_debugContext != 0);
     if (!desyncReady) {
         ImGui::BeginDisabled();
@@ -4229,6 +4353,25 @@ void DrawPlayerTab() {
     }
 
     DrawInventoryEditor();
+}
+
+void DrawDebugActionButton(int actionIndex, bool debugReady) {
+    if (actionIndex < 0 || actionIndex >= kActionCount) {
+        return;
+    }
+
+    if (!debugReady) {
+        ImGui::BeginDisabled();
+    }
+    if (ImGui::Button(g_actions[actionIndex].label)) {
+        TriggerDebugAction(actionIndex, "ImGui");
+    }
+    if (!debugReady) {
+        ImGui::EndDisabled();
+    }
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("Runs the native debug action. Requires the debug context to be captured in gameplay.");
+    }
 }
 
 void DrawGameTab() {
@@ -4434,6 +4577,11 @@ void DrawGameTab() {
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::SetTooltip("One-shot helper for the current Abstergo PC ring hack minigame. It only acts while an active puzzle is loaded.");
     }
+
+    const bool debugReady = g_debugContextPatchReady && g_debugContext != 0;
+    DrawDebugActionButton(kActionResetConflict, debugReady);
+    DrawDebugActionButton(kActionUnfogCurrentMap, debugReady);
+    DrawDebugActionButton(kActionUnlockAllWorldUpgrades, debugReady);
 
     if (g_freezeMissionTimerPatchReady) {
         bool value = g_freezeMissionTimer;
@@ -6097,6 +6245,9 @@ void InstallGameplayPatches() {
     g_actions[kActionTimeScale].ready = g_timeScalePatchReady;
     g_actions[kActionPlayerSuperJump].ready = g_playerSuperJumpPatchReady;
     g_actions[kActionNoclip].ready = g_nativeGhostReady;
+    for (int i = kActionRefillPlayerHealth; i <= kActionUnlockAllWorldUpgrades; ++i) {
+        g_actions[i].ready = g_debugContextPatchReady;
+    }
     if (!g_shipPatchReady) {
         g_shipGodmode = false;
         g_noCannonCooldown = false;

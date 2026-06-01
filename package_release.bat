@@ -20,7 +20,7 @@ copy /y "%ASI_PATH%" "%RELEASE_SCRIPTS%\AC5Tools.asi" >nul
 copy /y "%PROJECT_DIR%AC5Tools.ini" "%RELEASE_SCRIPTS%\AC5Tools.ini" >nul
 
 (
- echo AC5Tools v1.02
+ echo AC5Tools v1.03
  echo.
  echo Standalone x64 ASI plugin for Assassin's Creed Rogue ACC.exe.
  echo Supported ACC.exe size: 67,873,496 bytes
@@ -35,16 +35,16 @@ copy /y "%PROJECT_DIR%AC5Tools.ini" "%RELEASE_SCRIPTS%\AC5Tools.ini" >nul
  echo Logging is off by default. Set [Logging] EnableConsole or EnableFile to 1 in scripts\AC5Tools.ini to enable diagnostics.
  echo.
  echo Current tabs:
- echo - Ship: God Mode, Ally Godmode, Stealth Mode, Instant Reload, and Harpoon Godmode.
- echo - Player: God Mode, Stealth Mode, No Reload, Lock Consumables, Unlimited Resources, Unlimited Selling, No Fall Damage, Desynchronize Yourself, and Inventory Add/Set.
+ echo - Ship: God Mode, Ally Godmode, Stealth Mode, Instant Reload, Harpoon Godmode, and Wanted Level actions.
+ echo - Player: God Mode, Refill Player's Health, Stealth Mode, No Reload, Lock Consumables, Unlimited Resources, Unlimited Selling, No Fall Damage, Notoriety actions, equipment refill, Player Vanish, Desynchronize Yourself, and Inventory Add/Set.
  echo - Animus Hacks: save patch, Complete All Challenges, Unlock All In-Game Cheats, and Allow Saving.
- echo - Game: Player Super Speed, Time Scale, Player Super Jump, Noclip with speed controls, Finish current Abstergo PC Hack, and Freeze Mission Timer.
+ echo - Game: Player Super Speed, Time Scale, Player Super Jump, Noclip with speed controls, Finish current Abstergo PC Hack, Reset Conflict, map unfog, world upgrades, and Freeze Mission Timer.
  echo - Unlocks: Install Global Unlocks button and queued single unlock checkboxes.
- echo - Hotkeys: configurable menu and feature hotkeys.
+ echo - Hotkeys: configurable menu, feature, and one-shot action hotkeys.
  echo - System: input/window-lock toggles, logging status, process info, executable fingerprint, and patch-safety diagnostics.
  echo.
  echo Patch safety:
- echo - Ship God Mode, Ally Godmode, Ship Stealth Mode, Ship Instant Reload, Harpoon Godmode, Stealth Mode, Player God Mode, Desynchronize Yourself, No Reload, Lock Consumables, Inventory Add/Set, Unlimited Resources, Unlimited Selling, No Fall Damage, Animus Hacks, Player Super Speed, Time Scale, Player Super Jump, Noclip, Abstergo PC Hack finish, Freeze Mission Timer, and Unlocks use guarded Rogue signatures/functions.
+ echo - Ship God Mode, Ally Godmode, Ship Stealth Mode, Ship Instant Reload, Harpoon Godmode, Stealth Mode, Player God Mode, Desynchronize Yourself, No Reload, Lock Consumables, Inventory Add/Set, Unlimited Resources, Unlimited Selling, No Fall Damage, Animus Hacks, native actions, Player Super Speed, Time Scale, Player Super Jump, Noclip, Abstergo PC Hack finish, Freeze Mission Timer, and Unlocks use guarded Rogue signatures/functions.
  echo - Finish current Abstergo PC Hack only acts while the ring hack minigame is open, then lets the game finish the transition normally.
  echo - Inventory Add/Set queues edits until the matching in-game item changes, then auto-clears the queued row.
  echo - Use Install Global Unlocks at the main menu before loading a save; it stays active until the game exits.

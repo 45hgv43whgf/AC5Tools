@@ -1,8 +1,8 @@
 #include <windows.h>
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION 1,2,0,0
-PRODUCTVERSION 1,2,0,0
+FILEVERSION 1,3,0,0
+PRODUCTVERSION 1,3,0,0
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS VOS_NT_WINDOWS32
@@ -15,11 +15,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "AC5Tools"
             VALUE "FileDescription", "AC5Tools ASI Plugin"
-            VALUE "FileVersion", "1.02"
+            VALUE "FileVersion", "1.03"
             VALUE "InternalName", "AC5Tools"
             VALUE "OriginalFilename", "AC5Tools.asi"
             VALUE "ProductName", "AC5Tools"
-            VALUE "ProductVersion", "1.02"
+            VALUE "ProductVersion", "1.03"
         END
     END
     BLOCK "VarFileInfo"

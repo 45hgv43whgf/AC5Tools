@@ -2,9 +2,9 @@
 
 AC5Tools is a standalone x64 ASI plugin for **Assassin's Creed Rogue**.
 
-It adds an in-game DX11 ImGui menu with ship, player, inventory, unlock, Animus Hacks, noclip, movement, input/system, and hotkey options. The plugin is intended to be loaded through Ultimate ASI Loader.
+It adds an in-game DX11 ImGui menu with ship, player, inventory, unlock, Animus Hacks, native actions, noclip, movement, input/system, and hotkey options. The plugin is intended to be loaded through Ultimate ASI Loader.
 
-Current version: **v1.02**
+Current version: **v1.03**
 
 ## Game Version
 
@@ -27,12 +27,14 @@ Other game builds may use different code addresses or bytes. If a supported patc
 - Stealth Mode
 - Instant Reload: zeros broadside, heavy shot, mortar, and front carronade reload timers while enabled
 - Harpoon Godmode
+- Decrease/Increase Wanted Level
 
 Ship and friendly-ship health refill may not visually update immediately while God Mode or Ally Godmode is active.
 
 ### Player
 
 - God Mode
+- Refill Player's Health
 - Stealth Mode
 - No Reload
 - Lock Consumables
@@ -42,6 +44,9 @@ Ship and friendly-ship health refill may not visually update immediately while G
 - Allow Eagle Vision while sprinting
 - Infinite Breath
 - Kill civilians without desynchronization: prevents civilian kills from adding desync progress and suppresses the related warning text and screen effect while enabled
+- Decrease/Increase Notoriety
+- Refill All Equipment
+- Toggle Player Vanish
 - Desynchronize Yourself: one-shot native desync action; briefly bypasses Player God Mode if it is enabled
 - Inventory Add/Set: queued one-time edits for money, player items, ship supplies, and cargo
 
@@ -64,6 +69,9 @@ Player and ship supplies are clamped to `0-99`; cargo is clamped to `0-9999`; mo
 - Player Super Jump with configurable distance and height. When enabled, you may need to double tap Space to trigger the enhanced jump.
 - Noclip through the native engine ghost path, with configurable speed and Shift boost speed
 - Finish current Abstergo PC Hack: one-shot helper for the currently open ring hack minigame
+- Reset Conflict
+- Unfog Current Map
+- Unlock All World Upgrades
 - Freeze Mission Timer
 
 ### Animus Hacks
@@ -94,7 +102,7 @@ Unlocks can irreversibly affect progression if an unlocked item was supposed to 
 - Optional keyboard input blocking while the AC5Tools UI is open
 - Optional AC5Tools hotkey blocking while the AC5Tools UI is open
 - Saved menu window position and size after dragging/resizing
-- Configurable hotkeys for the menu and toggleable features
+- Configurable hotkeys for the menu, toggleable features, and one-shot actions
 - In-game UI opened with the configured menu hotkey, `B` by default
 - Optional console and file logging for patch status and diagnostics
 - Console warnings are yellow and errors are red
@@ -192,6 +200,7 @@ WindowSizeY = 420
 
 [Game]
 PlayerSuperSpeed = 2.750000
+TimeScale = 1.000000
 PlayerSuperJumpDistance = 8.000000
 PlayerSuperJumpHeight = -3.000000
 
@@ -210,14 +219,28 @@ DesynchronizeYourself = 0
 StealthMode = 0
 NoReload = 0
 NoFallDamage = 0
+AllowEagleVisionWhileSprinting = 0
+InfiniteBreath = 0
+KillCiviliansNoDesync = 0
 LockConsumables = 0
 UnlimitedResources = 0
 UnlimitedSelling = 0
 HarpoonGodmode = 0
 FreezeMissionTimer = 0
 PlayerSuperSpeed = 0
+TimeScale = 0
 PlayerSuperJump = 0
 Noclip = 0
+RefillPlayerHealth = 0
+ResetConflict = 0
+RefillAllEquipment = 0
+TogglePlayerVanish = 0
+DecreaseNotoriety = 0
+IncreaseNotoriety = 0
+DecreaseWantedLevel = 0
+IncreaseWantedLevel = 0
+UnfogCurrentMap = 0
+UnlockAllWorldUpgrades = 0
 ```
 
 `EnableConsole = 1` opens a console window. `EnableFile = 1` writes timestamped lines to `AC5Tools.log` next to the ASI. When console logging is enabled, warnings are yellow and errors are red. Startup diagnostics print the detected `ACC.exe` size, timestamp, and SHA256; a SHA256 mismatch is a warning that the game executable may not be the fully supported build.
