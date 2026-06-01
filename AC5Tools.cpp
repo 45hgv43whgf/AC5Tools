@@ -2083,6 +2083,66 @@ bool UnlockItemById(const std::uint8_t id[8], std::uintptr_t& itemAddress, bool 
     return true;
 }
 
+bool ClearCollectUnlockState(const std::uint8_t id[8], const char* entryName, const char* role, std::uintptr_t* outRecord = nullptr) {
+    const auto record = FindUnlockRecordById(id);
+    if (!record || record < 12) {
+        LogErrorf("Single unlock collect failed: %s record was not found for %s.", role, entryName);
+        return false;
+    }
+
+    std::uintptr_t item = 0;
+    if (!TryReadQword(record - 12, item) || !item) {
+        LogErrorf("Single unlock collect failed: %s item pointer unreadable for %s at 0x%p.",
+                  role,
+                  entryName,
+                  reinterpret_cast<void*>(record - 12));
+        return false;
+    }
+
+    if (outRecord) {
+        *outRecord = record - 12;
+    }
+
+    bool ok = true;
+    for (const std::uintptr_t offset : {0x40ull, 0x45ull}) {
+        const std::uintptr_t address = item + offset;
+        std::uint8_t value = 0;
+        if (!TryReadByte(address, value)) {
+            LogErrorf("Single unlock collect failed: %s state byte 0x%llX unreadable for %s at 0x%p.",
+                      role,
+                      static_cast<unsigned long long>(offset),
+                      entryName,
+                      reinterpret_cast<void*>(address));
+            ok = false;
+            continue;
+        }
+        if (value == 0) {
+            continue;
+        }
+        if (!TryWriteByte(address, 0)) {
+            LogErrorf("Single unlock collect failed: %s state byte 0x%llX write failed for %s at 0x%p, current=%u.",
+                      role,
+                      static_cast<unsigned long long>(offset),
+                      entryName,
+                      reinterpret_cast<void*>(address),
+                      static_cast<unsigned>(value));
+            ok = false;
+            continue;
+        }
+        std::uint8_t after = 0xFF;
+        if (TryReadByte(address, after) && after != 0) {
+            LogErrorf("Single unlock collect failed: %s state byte 0x%llX remained %u for %s at 0x%p.",
+                      role,
+                      static_cast<unsigned long long>(offset),
+                      static_cast<unsigned>(after),
+                      entryName,
+                      reinterpret_cast<void*>(address));
+            ok = false;
+        }
+    }
+    return ok;
+}
+
 bool ApplyNormalUnlock(UnlockEntry& entry) {
     const auto record = FindUnlockRecordById(entry.item);
     if (!record || record < 12) {
@@ -2211,18 +2271,18 @@ bool AppendUnlockCollectionItem(std::uintptr_t itemPointer) {
 }
 
 bool ApplyCollectUnlock(UnlockEntry& entry) {
-    std::uintptr_t requiredItem = 0;
-    if (!UnlockItemById(entry.required, requiredItem, true)) {
-        LogErrorf("Single unlock collect failed: prerequisite was not found or writable for %s.", entry.name);
+    std::uintptr_t rewardRecord = 0;
+    const bool prerequisiteCleared = ClearCollectUnlockState(entry.required, entry.name, "prerequisite");
+    const bool rewardCleared = ClearCollectUnlockState(entry.item, entry.name, "reward", &rewardRecord);
+    if (!prerequisiteCleared || !rewardCleared || !rewardRecord) {
         return false;
     }
 
-    const auto record = FindUnlockRecordById(entry.item);
-    if (!record || record < 12) {
-        LogErrorf("Single unlock collect failed: reward record was not found for %s.", entry.name);
+    if (!AppendUnlockCollectionItem(rewardRecord)) {
         return false;
     }
-    return AppendUnlockCollectionItem(record - 12);
+    Logf("Single unlock collect state cleared: %s.", entry.name);
+    return true;
 }
 
 bool ApplyPlatformRewardPack() {
