@@ -8,7 +8,7 @@ Current version: **v1.03**
 
 ## Game Version
 
-AC5Tools was made and tested for the Steam/Uplay single-player executable:
+AC5Tools was made and tested for the Steam single-player executable:
 
 ```text
 ACC.exe
